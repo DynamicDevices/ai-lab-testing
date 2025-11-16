@@ -34,7 +34,7 @@ class TestCredentialCache:
         """Test creating cache directory"""
         # Use tmp_path for testing
         test_cache_dir = tmp_path / "cache"
-        mock_cache_dir.__truediv__ = lambda self, other: test_cache_dir / other
+        mock_cache_dir.__truediv__ = lambda _, other: test_cache_dir / other
         mock_cache_dir.mkdir = test_cache_dir.mkdir
         mock_cache_dir.exists = lambda: test_cache_dir.exists()
         mock_cache_dir.is_dir = lambda: test_cache_dir.is_dir()
@@ -298,4 +298,3 @@ class TestSSHCommand:
 
         assert isinstance(result, list)
         assert "ssh" in result
-
