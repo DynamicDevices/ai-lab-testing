@@ -2,12 +2,20 @@
 
 ## Installation
 
+**Requirements: Python 3.10+** (MCP SDK requires Python 3.10+)
+
 ```bash
-pip3 install -r requirements.txt
-pip3 install git+https://github.com/modelcontextprotocol/python-sdk.git
-pip3 install -e ".[dev]"  # Optional: dev dependencies
-pre-commit install  # Optional: git hooks
+# Install the MCP SDK (requires Python 3.10+)
+python3.10 -m pip install git+https://github.com/modelcontextprotocol/python-sdk.git
+
+# Install this package
+python3.10 -m pip install -e ".[dev]"  # Optional: dev dependencies
+
+# Optional: git hooks
+pre-commit install
 ```
+
+**Note:** If your default `python3` is 3.8 or 3.9, use `python3.10` explicitly for MCP SDK installation.
 
 ## Configuration
 
@@ -25,7 +33,7 @@ Add to `~/.cursor/mcp.json`:
 {
   "mcpServers": {
     "lab-testing": {
-      "command": "python3",
+      "command": "python3.10",
       "args": ["/absolute/path/to/mcp_remote_testing/server.py"],
       "env": {"LAB_TESTING_ROOT": "/data_drive/esl/lab-testing"}
     }
@@ -33,7 +41,9 @@ Add to `~/.cursor/mcp.json`:
 }
 ```
 
-Or use installed package: `"command": "mcp-lab-testing"`
+**Important:** Use `python3.10` (or `python3.11+`) since MCP SDK requires Python 3.10+.
+
+Or use installed package: `"command": "python3.10", "args": ["-m", "mcp_remote_testing.server"]`
 
 Restart Cursor.
 

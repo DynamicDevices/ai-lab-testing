@@ -18,6 +18,7 @@ CONFIG_DIR = LAB_TESTING_ROOT / "config"
 SECRETS_DIR = LAB_TESTING_ROOT / "secrets"
 SCRIPTS_DIR = LAB_TESTING_ROOT / "scripts" / "local"
 LOGS_DIR = LAB_TESTING_ROOT / "logs"
+CACHE_DIR = Path.home() / ".cache" / "mcp-remote-testing"
 
 # Key configuration files
 LAB_DEVICES_JSON = CONFIG_DIR / "lab_devices.json"

@@ -13,7 +13,7 @@ import sys
 
 def test_imports():
     """Test that all modules can be imported"""
-    print("Testing imports...")
+    logger.info("Testing imports...")
     try:
         from mcp_remote_testing.config import validate_config
         from mcp_remote_testing.resources.device_inventory import get_device_inventory
@@ -22,10 +22,10 @@ def test_imports():
         from mcp_remote_testing.tools.power_monitor import get_power_logs
         from mcp_remote_testing.tools.tasmota_control import list_tasmota_devices
         from mcp_remote_testing.tools.vpn_manager import get_vpn_status
-        print("✓ All imports successful")
+        logger.info("✓ All imports successful")
         return True
     except ImportError as e:
-        print(f"✗ Import failed: {e}")
+        logger.error(f"✗ Import failed: {e}")
         return False
 
 def test_config():
@@ -48,39 +48,39 @@ def test_config():
 
 def test_tools():
     """Test tool functions"""
-    print("\nTesting tools...")
+    logger.info("\nTesting tools...")
 
     # Test list_devices
     try:
         from mcp_remote_testing.tools.device_manager import list_devices
         result = list_devices()
-        print(f"✓ list_devices: Found {result.get('total_devices', 0)} devices")
-        print(f"  Summary: {result.get('summary', 'N/A')}")
+        logger.info(f"✓ list_devices: Found {result.get('total_devices', 0)} devices")
+        logger.info(f"  Summary: {result.get('summary', 'N/A')}")
     except Exception as e:
-        print(f"✗ list_devices failed: {e}")
+        logger.error(f"✗ list_devices failed: {e}")
         return False
-
+    
     # Test VPN status
     try:
         from mcp_remote_testing.tools.vpn_manager import get_vpn_status
         result = get_vpn_status()
         connected = result.get("connected", False)
-        print(f"✓ vpn_status: VPN {'connected' if connected else 'disconnected'}")
+        logger.info(f"✓ vpn_status: VPN {'connected' if connected else 'disconnected'}")
     except Exception as e:
-        print(f"✗ vpn_status failed: {e}")
+        logger.error(f"✗ vpn_status failed: {e}")
         return False
-
+    
     # Test Tasmota list
     try:
         from mcp_remote_testing.tools.tasmota_control import list_tasmota_devices
         result = list_tasmota_devices()
         if result.get("success"):
             count = result.get("count", 0)
-            print(f"✓ list_tasmota_devices: Found {count} Tasmota devices")
+            logger.info(f"✓ list_tasmota_devices: Found {count} Tasmota devices")
         else:
-            print(f"⚠ list_tasmota_devices: {result.get('error', 'Unknown error')}")
+            logger.warning(f"⚠ list_tasmota_devices: {result.get('error', 'Unknown error')}")
     except Exception as e:
-        print(f"✗ list_tasmota_devices failed: {e}")
+        logger.error(f"✗ list_tasmota_devices failed: {e}")
         return False
 
     return True
@@ -135,9 +135,9 @@ def test_mcp_sdk():
 
 def main():
     """Run all tests"""
-    print("=" * 60)
-    print("MCP Server Component Tests")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("MCP Server Component Tests")
+    logger.info("=" * 60)
 
     results = []
     results.append(("Imports", test_imports()))

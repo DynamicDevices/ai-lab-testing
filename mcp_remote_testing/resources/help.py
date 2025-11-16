@@ -48,11 +48,15 @@ def get_help_content() -> Dict[str, Any]:
             "trigger_ota_update": "Trigger OTA update (device_id, target?)",
             "list_containers": "List Docker containers on device (device_id)",
             "deploy_container": "Deploy/update container (device_id, container_name, image)",
-            "get_system_status": "Get system status: uptime, load, memory, disk, kernel (device_id)"
+            "get_system_status": "Get system status: uptime, load, memory, disk, kernel (device_id)",
+            "get_firmware_version": "Get firmware/OS version from /etc/os-release (device_id)",
+            "get_foundries_registration_status": "Check Foundries.io registration, connection, update status (device_id)",
+            "get_secure_boot_status": "Get detailed secure boot status: U-Boot, kernel, EFI, HAB/CAAM (device_id)",
+            "get_device_identity": "Get device identity: hostname, SOC unique ID, Foundries registration name (device_id)"
         },
         "batch_operations": {
-            "batch_operation": "Execute operation on multiple devices (device_ids[], operation, ...)",
-            "regression_test": "Run regression test sequence (device_group?|device_ids[], test_sequence?)",
+            "batch_operation": "Execute operation on multiple devices in parallel (device_ids[], operation, max_concurrent=5, ...)",
+            "regression_test": "Run regression test sequence in parallel (device_group?|device_ids[], test_sequence?, max_concurrent=5)",
             "get_device_groups": "Get devices organized by groups/tags for rack management"
         },
         "power_analysis": {
@@ -65,7 +69,8 @@ def get_help_content() -> Dict[str, Any]:
             "device://inventory": "Complete device inventory JSON with all configured devices",
             "network://status": "Current network and VPN connection status",
             "config://lab_devices": "Raw lab devices configuration file",
-            "help://usage": "This help documentation"
+            "help://usage": "This help documentation",
+            "health://status": "Server health, metrics, SSH pool status, and uptime"
         },
         "configuration": {
             "lab_testing_root": "Path to lab testing framework (default: /data_drive/esl/lab-testing)",

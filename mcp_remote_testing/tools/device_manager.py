@@ -72,19 +72,17 @@ def test_device(device_id: str) -> Dict[str, Any]:
     devices = config.get("devices", {})
 
     if device_id not in devices:
-        return {
-            "success": False,
-            "error": f"Device '{device_id}' not found in configuration"
-        }
+        error_msg = f"Device '{device_id}' not found in configuration"
+        logger.error(error_msg)
+        raise DeviceNotFoundError(error_msg, device_id=device_id)
 
     device = devices[device_id]
     ip = device.get("ip")
 
     if not ip:
-        return {
-            "success": False,
-            "error": f"Device '{device_id}' has no IP address configured"
-        }
+        error_msg = f"Device '{device_id}' has no IP address configured"
+        logger.error(error_msg)
+        raise DeviceConnectionError(error_msg, device_id=device_id)
 
     # Test connectivity
     try:
@@ -149,43 +147,68 @@ def ssh_to_device(device_id: str, command: str, username: Optional[str] = None) 
     devices = config.get("devices", {})
 
     if device_id not in devices:
-        return {
-            "success": False,
-            "error": f"Device '{device_id}' not found"
-        }
+        error_msg = f"Device '{device_id}' not found"
+        logger.error(error_msg)
+        raise DeviceNotFoundError(error_msg, device_id=device_id)
 
     device = devices[device_id]
     ip = device.get("ip")
     ssh_port = device.get("ports", {}).get("ssh", 22)
 
     if not ip:
-        return {
-            "success": False,
-            "error": f"Device '{device_id}' has no IP address"
-        }
+        error_msg = f"Device '{device_id}' has no IP address"
+        logger.error(error_msg)
+        raise DeviceConnectionError(error_msg, device_id=device_id)
+    
+    logger.debug(f"Executing SSH command on {device_id} ({ip}): {command}")
 
     # Determine username
     if not username:
         username = device.get("ssh_user", "root")
 
+    # Record change for tracking
+    from mcp_remote_testing.utils.change_tracker import record_ssh_command
+    change_id = record_ssh_command(device_id, command)
+    
     # Execute SSH command with preferred authentication
+    # Try connection pool first, fallback to direct connection
     try:
-        # Prefer SSH key authentication, fallback to password if needed
-        ssh_cmd = get_ssh_command(ip, username, command, device_id, use_password=False)
-
-        # Add port if not default
-        if ssh_port != 22:
-            # Insert port option before username@ip
-            port_idx = ssh_cmd.index(f"{username}@{ip}")
-            ssh_cmd.insert(port_idx, "-p")
-            ssh_cmd.insert(port_idx + 1, str(ssh_port))
-
-        result = subprocess.run(
-            ssh_cmd,
-            check=False, capture_output=True,
-            text=True,
-            timeout=30
-        )
+        from mcp_remote_testing.utils.ssh_pool import execute_via_pool
+        from mcp_remote_testing.utils.process_manager import ensure_single_process
+        
+        # Check if this command might conflict with existing processes
+        # Extract process name from command for conflict detection
+        process_pattern = None
+        if command.strip():
+            # Simple heuristic: use first word as process name
+            first_word = command.strip().split()[0]
+            if first_word and '/' not in first_word and first_word not in ['echo', 'test', 'cat', 'grep']:
+                process_pattern = first_word
+                # Ensure no conflicting process is running
+                ensure_single_process(ip, username, device_id, process_pattern, command, kill_existing=True, force_kill=False)
+        
+        # Try using connection pool
+        try:
+            result = execute_via_pool(ip, username, command, device_id, ssh_port)
+            logger.debug(f"Executed via connection pool: {device_id}")
+        except Exception as pool_error:
+            logger.debug(f"Connection pool failed for {device_id}, using direct connection: {pool_error}")
+            # Fallback to direct connection
+            ssh_cmd = get_ssh_command(ip, username, command, device_id, use_password=False)
+            
+            # Add port if not default
+            if ssh_port != 22:
+                # Insert port option before username@ip
+                port_idx = ssh_cmd.index(f"{username}@{ip}")
+                ssh_cmd.insert(port_idx, "-p")
+                ssh_cmd.insert(port_idx + 1, str(ssh_port))
+            
+            result = subprocess.run(
+                ssh_cmd,
+                check=False, capture_output=True,
+                text=True,
+                timeout=30
+            )
 
         return {
             "success": result.returncode == 0,
@@ -195,19 +218,36 @@ def ssh_to_device(device_id: str, command: str, username: Optional[str] = None) 
             "command": command,
             "exit_code": result.returncode,
             "stdout": result.stdout,
-            "stderr": result.stderr
+            "stderr": result.stderr,
+            "change_id": change_id  # Include change tracking ID
         }
 
     except subprocess.TimeoutExpired:
-        return {
-            "success": False,
-            "device_id": device_id,
-            "error": "SSH command timed out"
-        }
+        error_msg = "SSH command timed out"
+        logger.warning(f"SSH timeout for {device_id}: {command}")
+        raise DeviceTimeoutError(error_msg, device_id=device_id)
     except Exception as e:
-        return {
-            "success": False,
-            "device_id": device_id,
-            "error": f"SSH execution failed: {e!s}"
-        }
+        error_msg = f"SSH execution failed: {str(e)}"
+        logger.error(f"SSH error for {device_id}: {e}", exc_info=True)
+        raise SSHError(error_msg, device_id=device_id, command=command)
+
+
+def get_device_info(device_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get device information from configuration.
+    
+    Args:
+        device_id: Device identifier
+        
+    Returns:
+        Device information dictionary or None if not found
+    """
+    config = load_device_config()
+    devices = config.get("devices", {})
+    
+    if device_id in devices:
+        device = devices[device_id].copy()
+        device["device_id"] = device_id
+        return device
+    return None
 

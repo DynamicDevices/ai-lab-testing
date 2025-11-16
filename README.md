@@ -6,10 +6,17 @@ MCP server exposing remote embedded hardware testing capabilities to AI assistan
 
 ## Quick Start
 
+**Requirements: Python 3.10+** (MCP SDK requires Python 3.10+)
+
 ```bash
-pip3 install -r requirements.txt
-pip3 install git+https://github.com/modelcontextprotocol/python-sdk.git
-python3 test_server.py
+# Install the MCP SDK (requires Python 3.10+)
+python3.10 -m pip install git+https://github.com/modelcontextprotocol/python-sdk.git
+
+# Install this package
+python3.10 -m pip install -e ".[dev]"
+
+# Verify installation
+python3.10 mcp_remote_testing/test_server.py
 ```
 
 ## Configuration
@@ -20,13 +27,17 @@ Add to Cursor MCP config (`~/.cursor/mcp.json`):
 {
   "mcpServers": {
     "lab-testing": {
-      "command": "python3",
-      "args": ["/path/to/mcp-remote-testing/server.py"],
+      "command": "python3.10",
+      "args": ["/home/ajlennon/data_drive/esl/mcp-remote-testing/mcp_remote_testing/server.py"],
       "env": {"LAB_TESTING_ROOT": "/data_drive/esl/lab-testing"}
     }
   }
 }
 ```
+
+**Important:** Use `python3.10` (or `python3.11+`) since MCP SDK requires Python 3.10+.
+
+See [docs/SETUP.md](docs/SETUP.md) for detailed setup instructions or `mcp.json.example` for a template.
 
 ## Architecture
 
@@ -68,7 +79,10 @@ Data flow: AI → MCP Server → Tools → Lab Framework → Hardware
 - **VPN**: `vpn_status`, `connect_vpn`, `disconnect_vpn`
 - **Power**: `start_power_monitoring`, `get_power_logs`, `analyze_power_logs`, `monitor_low_power`, `compare_power_profiles`
 - **Tasmota**: `tasmota_control`, `list_tasmota_devices`
-- **OTA/Containers**: `check_ota_status`, `trigger_ota_update`, `list_containers`, `deploy_container`, `get_system_status`
+- **OTA/Containers**: `check_ota_status`, `trigger_ota_update`, `list_containers`, `deploy_container`, `get_system_status`, `get_firmware_version`, `get_foundries_registration_status`, `get_secure_boot_status`, `get_device_identity`
+- **Process Management**: `kill_stale_processes` - Kill duplicate processes that might interfere
+- **Remote Access**: `create_ssh_tunnel`, `list_ssh_tunnels`, `close_ssh_tunnel`, `access_serial_port`, `list_serial_devices` - SSH tunnels and serial port access
+- **Change Tracking**: `get_change_history`, `revert_changes` - Track and revert changes for security/debugging
 - **Batch/Regression**: `batch_operation`, `regression_test`, `get_device_groups`
 - **Help**: `help` - Get usage documentation and examples
 
@@ -78,11 +92,13 @@ Data flow: AI → MCP Server → Tools → Lab Framework → Hardware
 - `network://status` - Network/VPN status
 - `config://lab_devices` - Raw config
 - `help://usage` - Help documentation and usage examples
+- `health://status` - Server health, metrics, and SSH pool status
 
 ## Development
 
 ```bash
-pip3 install -e ".[dev]"
+# Use Python 3.10+ for development
+python3.10 -m pip install -e ".[dev]"
 pre-commit install
 black . && ruff check . --fix
 ```
