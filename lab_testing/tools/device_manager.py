@@ -72,7 +72,7 @@ def list_devices() -> Dict[str, Any]:
     }
 
 
-def test_device(device_id_or_name: str) -> Dict[str, Any]:  # noqa: PT
+def test_device(device_id_or_name: str) -> Dict[str, Any]:
     """
     Test connectivity to a specific device.
 
