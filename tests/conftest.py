@@ -6,10 +6,8 @@ License: GPL-3.0-or-later
 """
 
 import json
-import tempfile
 from pathlib import Path
-from typing import Dict, Any
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 

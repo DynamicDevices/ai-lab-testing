@@ -4,15 +4,28 @@ MCP server exposing remote embedded hardware testing capabilities to AI assistan
 
 **Version**: 0.1.0
 
-## Quick Start
+## Installation
 
 **Requirements: Python 3.10+** (MCP SDK requires Python 3.10+)
 
-```bash
-# Install the MCP SDK (requires Python 3.10+)
-python3.10 -m pip install git+https://github.com/modelcontextprotocol/python-sdk.git
+### From PyPI (Recommended)
 
-# Install this package
+```bash
+# Install from PyPI
+python3.10 -m pip install lab-testing
+
+# Or with development dependencies
+python3.10 -m pip install "lab-testing[dev]"
+```
+
+### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/DynamicDevices/mcp-remote-testing.git
+cd mcp-remote-testing
+
+# Install in development mode
 python3.10 -m pip install -e ".[dev]"
 
 # Verify installation

@@ -49,31 +49,31 @@ def get_vpn_config() -> Optional[Path]:
         config_path = Path(VPN_CONFIG_PATH_ENV)
         if config_path.exists():
             return config_path
-    
+
     # 2. Check common filenames in secrets directory
     common_names = ["wg0.conf", "wireguard.conf", "vpn.conf"]
     for name in common_names:
         config_path = SECRETS_DIR / name
         if config_path.exists():
             return config_path
-    
+
     # 3. Search for any .conf files in secrets directory
     if SECRETS_DIR.exists():
         conf_files = list(SECRETS_DIR.glob("*.conf"))
         if conf_files:
             # Prefer files with 'wg' or 'wireguard' in name
             for f in conf_files:
-                if 'wg' in f.name.lower() or 'wireguard' in f.name.lower():
+                if "wg" in f.name.lower() or "wireguard" in f.name.lower():
                     return f
             # Otherwise return first .conf file
             return conf_files[0]
-    
+
     # 4. Check common system locations
     system_locations = [
         Path.home() / ".config" / "wireguard",
         Path("/etc/wireguard"),
     ]
-    
+
     for location in system_locations:
         if location.exists():
             conf_files = list(location.glob("*.conf"))
@@ -83,7 +83,7 @@ def get_vpn_config() -> Optional[Path]:
                     if f.name == "wg0.conf":
                         return f
                 return conf_files[0]
-    
+
     return None
 
 def get_scripts_dir() -> Path:

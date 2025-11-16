@@ -23,6 +23,19 @@ clean:
 	find . -type f -name "*.pyo" -delete
 	rm -rf build/ dist/ *.egg-info
 
+build:
+	python3.10 -m pip install --upgrade build twine
+	python3.10 -m build
+
+publish-test:
+	python3.10 -m twine upload --repository testpypi dist/*
+
+publish:
+	python3.10 -m twine upload dist/*
+
+check-dist:
+	python3.10 -m twine check dist/*
+
 setup-repo:
 	bash scripts/setup-repo.sh
 

@@ -87,7 +87,7 @@ def test_device(device_id_or_name: str) -> Dict[str, Any]:
         error_msg = f"Device '{device_id_or_name}' not found in configuration"
         logger.error(error_msg)
         raise DeviceNotFoundError(error_msg, device_id=device_id_or_name)
-    
+
     config = load_device_config()
     devices = config.get("devices", {})
 
@@ -121,7 +121,7 @@ def test_device(device_id_or_name: str) -> Dict[str, Any]:
             ssh_available = ssh_result.returncode == 0
 
         friendly_name = device.get("friendly_name") or device.get("name", device_id)
-        
+
         return {
             "success": True,
             "device_id": device_id,
@@ -169,7 +169,7 @@ def ssh_to_device(device_id_or_name: str, command: str, username: Optional[str] 
         error_msg = f"Device '{device_id_or_name}' not found"
         logger.error(error_msg)
         raise DeviceNotFoundError(error_msg, device_id=device_id_or_name)
-    
+
     config = load_device_config()
     devices = config.get("devices", {})
 
@@ -233,7 +233,7 @@ def ssh_to_device(device_id_or_name: str, command: str, username: Optional[str] 
             )
 
         friendly_name = device.get("friendly_name") or device.get("name", device_id)
-        
+
         return {
             "success": result.returncode == 0,
             "device_id": device_id,
@@ -273,21 +273,21 @@ def resolve_device_identifier(identifier: str) -> Optional[str]:
     """
     config = load_device_config()
     devices = config.get("devices", {})
-    
+
     # First, check if it's a direct device_id match
     if identifier in devices:
         return identifier
-    
+
     # Then, search by friendly_name
     for device_id, device_info in devices.items():
         friendly_name = device_info.get("friendly_name") or device_info.get("name")
         if friendly_name and friendly_name.lower() == identifier.lower():
             return device_id
-        
+
         # Also check if identifier matches the "name" field
         if device_info.get("name", "").lower() == identifier.lower():
             return device_id
-    
+
     return None
 
 
@@ -307,10 +307,10 @@ def get_device_info(device_id_or_name: str) -> Optional[Dict[str, Any]]:
     device_id = resolve_device_identifier(device_id_or_name)
     if not device_id:
         return None
-    
+
     config = load_device_config()
     devices = config.get("devices", {})
-    
+
     if device_id in devices:
         device = devices[device_id].copy()
         device["device_id"] = device_id

@@ -7,7 +7,6 @@ Copyright (C) 2025 Dynamic Devices Ltd
 License: GPL-3.0-or-later
 """
 
-import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -46,7 +45,7 @@ def check_wireguard_installed() -> Dict[str, Any]:
 def list_existing_configs() -> Dict[str, Any]:
     """List existing WireGuard configuration files"""
     configs = []
-    
+
     # Check secrets directory
     if SECRETS_DIR.exists():
         for conf_file in SECRETS_DIR.glob("*.conf"):
@@ -55,13 +54,13 @@ def list_existing_configs() -> Dict[str, Any]:
                 "name": conf_file.name,
                 "location": "secrets"
             })
-    
+
     # Check common system locations
     system_locations = [
         (Path.home() / ".config" / "wireguard", "user_config"),
         (Path("/etc/wireguard"), "system"),
     ]
-    
+
     for location, loc_type in system_locations:
         if location.exists():
             for conf_file in location.glob("*.conf"):
@@ -70,7 +69,7 @@ def list_existing_configs() -> Dict[str, Any]:
                     "name": conf_file.name,
                     "location": loc_type
                 })
-    
+
     return {
         "configs": configs,
         "count": len(configs)
@@ -89,10 +88,10 @@ def create_config_template(output_path: Optional[Path] = None) -> Dict[str, Any]
     """
     if output_path is None:
         output_path = SECRETS_DIR / "wg0.conf"
-    
+
     # Ensure secrets directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     template = """[Interface]
 # Your private key (generate with: wg genkey | tee privatekey | wg pubkey > publickey)
 PrivateKey = YOUR_PRIVATE_KEY_HERE
@@ -117,7 +116,7 @@ AllowedIPs = 192.168.0.0/16, 10.0.0.0/8
 # Optional: Keep connection alive
 PersistentKeepalive = 25
 """
-    
+
     try:
         if output_path.exists():
             return {
@@ -125,10 +124,10 @@ PersistentKeepalive = 25
                 "error": f"Configuration file already exists: {output_path}",
                 "path": str(output_path)
             }
-        
+
         output_path.write_text(template)
         output_path.chmod(0o600)  # Secure permissions
-        
+
         return {
             "success": True,
             "path": str(output_path),
@@ -158,12 +157,12 @@ def setup_networkmanager_connection(config_path: Path) -> Dict[str, Any]:
             "success": False,
             "error": f"Configuration file not found: {config_path}"
         }
-    
+
     try:
         # Import into NetworkManager
         # NetworkManager expects the connection name to match the config filename
         connection_name = config_path.stem
-        
+
         result = subprocess.run(
             ["nmcli", "connection", "import", "type", "wireguard", "file", str(config_path)],
             check=False,
@@ -171,19 +170,18 @@ def setup_networkmanager_connection(config_path: Path) -> Dict[str, Any]:
             text=True,
             timeout=10
         )
-        
+
         if result.returncode == 0:
             return {
                 "success": True,
                 "connection_name": connection_name,
                 "message": f"WireGuard connection '{connection_name}' imported into NetworkManager. You can now connect without root."
             }
-        else:
-            return {
-                "success": False,
-                "error": f"Failed to import into NetworkManager: {result.stderr}",
-                "hint": "You can still use wg-quick with sudo, or import manually via NetworkManager GUI"
-            }
+        return {
+            "success": False,
+            "error": f"Failed to import into NetworkManager: {result.stderr}",
+            "hint": "You can still use wg-quick with sudo, or import manually via NetworkManager GUI"
+        }
     except FileNotFoundError:
         return {
             "success": False,

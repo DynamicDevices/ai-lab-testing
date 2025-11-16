@@ -170,7 +170,7 @@ def _get_devices_controlled_by(tasmota_device_id: str, config: Dict[str, Any]) -
     """Get list of devices controlled by a Tasmota switch"""
     devices = config.get("devices", {})
     controlled = []
-    
+
     for device_id, device_info in devices.items():
         power_switch = device_info.get("power_switch")
         if power_switch == tasmota_device_id:
@@ -180,7 +180,7 @@ def _get_devices_controlled_by(tasmota_device_id: str, config: Dict[str, Any]) -
                 "name": device_info.get("name", "Unknown"),
                 "device_type": device_info.get("device_type", "unknown")
             })
-    
+
     return controlled
 
 
@@ -196,25 +196,25 @@ def get_power_switch_for_device(device_id_or_name: str) -> Optional[Dict[str, An
     """
     try:
         from lab_testing.tools.device_manager import resolve_device_identifier
-        
+
         # Resolve to actual device_id
         device_id = resolve_device_identifier(device_id_or_name)
         if not device_id:
             return None
-        
+
         with open(get_lab_devices_config()) as f:
             config = json.load(f)
             devices = config.get("devices", {})
-            
+
             if device_id not in devices:
                 return None
-            
+
             device = devices[device_id]
             power_switch_id = device.get("power_switch")
-            
+
             if not power_switch_id:
                 return None
-            
+
             # Get Tasmota device info
             if power_switch_id in devices:
                 switch_info = devices[power_switch_id]
@@ -225,9 +225,9 @@ def get_power_switch_for_device(device_id_or_name: str) -> Optional[Dict[str, An
                     "tasmota_ip": switch_info.get("ip"),
                     "tasmota_type": switch_info.get("tasmota_type", "unknown")
                 }
-            
+
             return None
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -245,8 +245,9 @@ def power_cycle_device(device_id_or_name: str, off_duration: int = 5) -> Dict[st
         Dictionary with power cycle results
     """
     import time
+
     from lab_testing.tools.device_manager import resolve_device_identifier
-    
+
     # Resolve to actual device_id
     device_id = resolve_device_identifier(device_id_or_name)
     if not device_id:
@@ -258,10 +259,10 @@ def power_cycle_device(device_id_or_name: str, off_duration: int = 5) -> Dict[st
                 "You can use either device_id or friendly_name"
             ]
         }
-    
+
     # Get power switch mapping
     power_switch = get_power_switch_for_device(device_id)
-    
+
     if not power_switch:
         return {
             "success": False,
@@ -272,9 +273,9 @@ def power_cycle_device(device_id_or_name: str, off_duration: int = 5) -> Dict[st
                 "Add 'power_switch': 'tasmota_device_id' to device config"
             ]
         }
-    
+
     tasmota_id = power_switch["tasmota_device_id"]
-    
+
     try:
         # Turn power off
         off_result = tasmota_control(tasmota_id, "off")
@@ -284,10 +285,10 @@ def power_cycle_device(device_id_or_name: str, off_duration: int = 5) -> Dict[st
                 "error": f"Failed to turn off power switch '{tasmota_id}'",
                 "tasmota_error": off_result.get("error")
             }
-        
+
         # Wait for off duration
         time.sleep(off_duration)
-        
+
         # Turn power on
         on_result = tasmota_control(tasmota_id, "on")
         if not on_result.get("success"):
@@ -297,7 +298,7 @@ def power_cycle_device(device_id_or_name: str, off_duration: int = 5) -> Dict[st
                 "tasmota_error": on_result.get("error"),
                 "warning": "Device power was turned off but failed to turn back on"
             }
-        
+
         return {
             "success": True,
             "device_id": device_id,
@@ -305,7 +306,7 @@ def power_cycle_device(device_id_or_name: str, off_duration: int = 5) -> Dict[st
             "off_duration": off_duration,
             "message": f"Device '{device_id}' power cycled successfully via '{power_switch['tasmota_friendly_name']}'"
         }
-    
+
     except Exception as e:
         return {
             "success": False,

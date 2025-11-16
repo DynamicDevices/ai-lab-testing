@@ -35,14 +35,14 @@ class MCPError(Exception):
             "error_code": self.error_code,
             "details": self.details
         }
-        
+
         if self.suggestions:
             result["suggestions"] = self.suggestions
         if self.fixes:
             result["fixes"] = self.fixes
         if self.related_tools:
             result["related_tools"] = self.related_tools
-        
+
         return result
 
 
@@ -62,7 +62,7 @@ class DeviceError(MCPError):
 
 class DeviceNotFoundError(DeviceError):
     """Device not found in configuration"""
-    
+
     def __init__(self, message: str, device_id: Optional[str] = None, **kwargs):
         suggestions = [
             f"Device '{device_id}' not found in configuration",
@@ -88,7 +88,7 @@ class DeviceNotFoundError(DeviceError):
 
 class DeviceConnectionError(DeviceError):
     """Failed to connect to device"""
-    
+
     def __init__(self, message: str, device_id: Optional[str] = None, **kwargs):
         suggestions = [
             "Check VPN connection status: 'vpn_status'",
@@ -136,7 +136,7 @@ class SSHError(MCPError):
             self.details["device_id"] = device_id
         if command:
             self.details["command"] = command
-        
+
         # Add helpful suggestions
         suggestions = [
             "Verify device connectivity: 'test_device'",
@@ -149,7 +149,7 @@ class SSHError(MCPError):
             "Verify VPN connection if device is remote"
         ]
         related_tools = ["test_device", "vpn_status", "get_device_info"]
-        
+
         self.suggestions = suggestions
         self.fixes = fixes
         self.related_tools = related_tools

@@ -55,3 +55,5 @@ Thumbs.db
 **/.cache/
 ~/.cache/mcp-remote-testing/
 
+# PyPI credentials
+.pypirc

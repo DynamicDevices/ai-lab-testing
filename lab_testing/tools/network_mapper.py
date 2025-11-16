@@ -12,7 +12,6 @@ import ipaddress
 import json
 import subprocess
 import time
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from lab_testing.config import get_lab_devices_config
@@ -55,13 +54,13 @@ def _scan_network_range(network: str, max_hosts: int = 254, timeout: int = 1) ->
     try:
         net = ipaddress.ip_network(network, strict=False)
         hosts = list(net.hosts())[:max_hosts]  # Limit to avoid huge scans
-        
+
         active_hosts = []
-        
+
         # Use thread pool for parallel pings
         with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
             futures = {executor.submit(_ping_host, str(host), timeout): str(host) for host in hosts}
-            
+
             for future in concurrent.futures.as_completed(futures):
                 ip, reachable, latency = future.result()
                 if reachable:
@@ -70,9 +69,9 @@ def _scan_network_range(network: str, max_hosts: int = 254, timeout: int = 1) ->
                         "latency_ms": round(latency, 2) if latency else None,
                         "status": "online"
                     })
-        
+
         return sorted(active_hosts, key=lambda x: ipaddress.IPv4Address(x["ip"]))
-    
+
     except Exception as e:
         logger.warning(f"Failed to scan network {network}: {e}")
         return []
@@ -120,17 +119,17 @@ def create_network_map(
         config_path = get_lab_devices_config()
         with open(config_path) as f:
             config = json.load(f)
-        
+
         devices = config.get("devices", {})
         infrastructure = config.get("lab_infrastructure", {})
-        
+
         # Get networks to scan
         if networks is None:
             networks = infrastructure.get("network_access", {}).get("lab_networks", [])
             if not networks:
                 # Default to common lab networks
                 networks = ["192.168.1.0/24", "192.168.2.0/24"]
-        
+
         result = {
             "timestamp": time.time(),
             "networks_scanned": networks,
@@ -139,33 +138,33 @@ def create_network_map(
             "unknown_hosts": [],
             "summary": {}
         }
-        
+
         # Scan networks for active hosts
         if scan_networks:
             logger.info(f"Scanning {len(networks)} networks for active hosts...")
             for network in networks:
                 active = _scan_network_range(network, max_hosts_per_network)
                 result["active_hosts"].extend(active)
-        
+
         # Test configured devices
         if test_configured_devices:
             logger.info(f"Testing {len(devices)} configured devices...")
             device_statuses = {}
-            
+
             # Test devices in parallel
             with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                 futures = {executor.submit(test_device, device_id): device_id for device_id in devices.keys()}
-                
+
                 for future in concurrent.futures.as_completed(futures):
                     device_id = futures[future]
                     try:
                         test_result = future.result()
                         device_info = devices[device_id]
-                        
+
                         # Get additional info
                         friendly_name = device_info.get("friendly_name") or device_info.get("name", device_id)
                         power_switch = get_power_switch_for_device(device_id)
-                        
+
                         # Get uptime if device is online
                         uptime = None
                         if test_result.get("ping_reachable", False) or test_result.get("ping", {}).get("success", False):
@@ -175,7 +174,7 @@ def create_network_map(
                                     uptime = uptime_result.get("stdout", "").strip()
                             except Exception:
                                 pass
-                        
+
                         device_statuses[device_id] = {
                             "device_id": device_id,
                             "friendly_name": friendly_name,
@@ -200,12 +199,12 @@ def create_network_map(
                             "status": "error",
                             "error": str(e)
                         }
-            
+
             result["configured_devices"] = device_statuses
-        
+
         # Match active hosts with configured devices
         configured_ips = {dev.get("ip") for dev in result["configured_devices"].values() if dev.get("ip")}
-        
+
         for host in result["active_hosts"]:
             ip = host["ip"]
             if ip not in configured_ips:
@@ -217,11 +216,11 @@ def create_network_map(
                     host["type"] = device_info["type"]
                 else:
                     result["unknown_hosts"].append(host)
-        
+
         # Create summary
         online_devices = sum(1 for d in result["configured_devices"].values() if d.get("status") == "online")
         offline_devices = sum(1 for d in result["configured_devices"].values() if d.get("status") == "offline")
-        
+
         result["summary"] = {
             "total_configured_devices": len(result["configured_devices"]),
             "online_devices": online_devices,
@@ -230,9 +229,9 @@ def create_network_map(
             "unknown_hosts": len(result["unknown_hosts"]),
             "networks_scanned": len(networks)
         }
-        
+
         return result
-    
+
     except Exception as e:
         logger.error(f"Failed to create network map: {e}", exc_info=True)
         return {
@@ -254,15 +253,15 @@ def generate_network_map_visualization(network_map: Dict[str, Any], format: str 
     """
     if "error" in network_map:
         return f"Error: {network_map['error']}"
-    
+
     if format == "json":
         return json.dumps(network_map, indent=2)
-    
+
     if format == "mermaid":
         # Generate Mermaid diagram
         lines = ["graph TB"]
-        lines.append("    subgraph \"Network Map\"")
-        
+        lines.append('    subgraph "Network Map"')
+
         # Add configured devices
         for device_id, device in network_map.get("configured_devices", {}).items():
             status = device.get("status", "unknown")
@@ -270,52 +269,52 @@ def generate_network_map_visualization(network_map: Dict[str, Any], format: str 
             color = "green" if status == "online" else "red"
             lines.append(f"        {device_id.replace('-', '_')}[\"{status_icon} {device.get('name', device_id)}\"]")
             lines.append(f"        style {device_id.replace('-', '_')} fill:#{color}33")
-        
+
         # Add unknown hosts
         for i, host in enumerate(network_map.get("unknown_hosts", [])[:10]):  # Limit to 10
             host_id = f"unknown_{i}"
             lines.append(f"        {host_id}[\"? {host['ip']}\"]")
             lines.append(f"        style {host_id} fill:#yellow33")
-        
+
         lines.append("    end")
         return "\n".join(lines)
-    
+
     # Default: text format
     lines = []
     lines.append("=" * 70)
     lines.append("Network Topology Map")
     lines.append("=" * 70)
     lines.append("")
-    
+
     summary = network_map.get("summary", {})
-    lines.append(f"Summary:")
+    lines.append("Summary:")
     lines.append(f"  Configured Devices: {summary.get('total_configured_devices', 0)}")
     lines.append(f"  Online: {summary.get('online_devices', 0)}")
     lines.append(f"  Offline: {summary.get('offline_devices', 0)}")
     lines.append(f"  Active Hosts Found: {summary.get('active_hosts_found', 0)}")
     lines.append(f"  Unknown Hosts: {summary.get('unknown_hosts', 0)}")
     lines.append("")
-    
+
     # Configured devices by status
     online_devices = [d for d in network_map.get("configured_devices", {}).values() if d.get("status") == "online"]
     offline_devices = [d for d in network_map.get("configured_devices", {}).values() if d.get("status") == "offline"]
-    
+
     if online_devices:
         lines.append("Online Devices:")
         for device in sorted(online_devices, key=lambda x: x.get("ip", "")):
             lines.append(f"  ✓ {device.get('name', 'Unknown')} ({device.get('ip', 'N/A')})")
             if device.get("ping"):
-                lines.append(f"      Ping: OK")
+                lines.append("      Ping: OK")
             if device.get("ssh"):
-                lines.append(f"      SSH: OK")
+                lines.append("      SSH: OK")
         lines.append("")
-    
+
     if offline_devices:
         lines.append("Offline Devices:")
         for device in sorted(offline_devices, key=lambda x: x.get("ip", "")):
             lines.append(f"  ✗ {device.get('name', 'Unknown')} ({device.get('ip', 'N/A')})")
         lines.append("")
-    
+
     # Unknown hosts
     unknown = network_map.get("unknown_hosts", [])
     if unknown:
@@ -326,8 +325,8 @@ def generate_network_map_visualization(network_map: Dict[str, Any], format: str 
         if len(unknown) > 20:
             lines.append(f"  ... and {len(unknown) - 20} more")
         lines.append("")
-    
+
     lines.append("=" * 70)
-    
+
     return "\n".join(lines)
 

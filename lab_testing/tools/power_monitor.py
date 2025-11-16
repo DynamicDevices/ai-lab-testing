@@ -42,7 +42,7 @@ def start_power_monitoring(
             "success": False,
             "error": f"Failed to load device configuration: {e!s}"
         }
-    
+
     # Auto-detect monitor type if not specified
     if device_id and device_id in devices:
         device = devices[device_id]
@@ -51,17 +51,16 @@ def start_power_monitoring(
                 monitor_type = "tasmota"
             elif device.get("device_type") == "test_equipment":
                 monitor_type = "dmm"
-    
+
     # Default to DMM if not specified
     if not monitor_type:
         monitor_type = "dmm"
-    
+
     if monitor_type == "tasmota":
         # Use Tasmota energy monitoring
         return _start_tasmota_power_monitoring(device_id, test_name, duration, devices)
-    else:
-        # Use DMM monitoring
-        return _start_dmm_power_monitoring(device_id, test_name, duration, devices)
+    # Use DMM monitoring
+    return _start_dmm_power_monitoring(device_id, test_name, duration, devices)
 
 
 def _start_dmm_power_monitoring(
@@ -138,13 +137,13 @@ def _start_tasmota_power_monitoring(
                 "Use list_tasmota_devices to see available Tasmota devices"
             ]
         }
-    
+
     if device_id not in devices:
         return {
             "success": False,
             "error": f"Tasmota device '{device_id}' not found in configuration"
         }
-    
+
     device = devices[device_id]
     if device.get("device_type") != "tasmota_device":
         return {
@@ -155,10 +154,10 @@ def _start_tasmota_power_monitoring(
                 "Or use DMM monitoring with monitor_type='dmm'"
             ]
         }
-    
+
     # Import here to avoid circular dependency
     from lab_testing.tools.tasmota_control import tasmota_control
-    
+
     # Test Tasmota energy monitoring
     test_result = tasmota_control(device_id, "energy")
     if not test_result.get("success"):
@@ -172,7 +171,7 @@ def _start_tasmota_power_monitoring(
                 "Use DMM monitoring as alternative"
             ]
         }
-    
+
     # For Tasmota, we'll poll energy data periodically
     # This is a simplified implementation - in practice, you'd want a background process
     return {

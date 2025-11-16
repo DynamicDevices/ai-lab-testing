@@ -107,7 +107,7 @@ def get_vpn_statistics() -> Dict[str, Any]:
 
         for line in result.stdout.strip().split("\n"):
             parts = line.split("\t")
-            
+
             # Interface line format: interface_name\tpublic_key\tlisten_port\tfwmark
             if len(parts) >= 2 and not parts[0].startswith("peer"):
                 # This is an interface or peer line
@@ -115,7 +115,7 @@ def get_vpn_statistics() -> Dict[str, Any]:
                     # Interface line
                     if current_interface_data:
                         interfaces.append(current_interface_data)
-                    
+
                     current_interface = parts[0]
                     current_interface_data = {
                         "interface": current_interface,
@@ -129,7 +129,7 @@ def get_vpn_statistics() -> Dict[str, Any]:
                         peer_public_key = parts[0]
                         endpoint = parts[2] if len(parts) > 2 else None
                         allowed_ips = parts[3].split(",") if len(parts) > 3 and parts[3] else []
-                        
+
                         # Parse last handshake (seconds since epoch)
                         last_handshake = None
                         if len(parts) > 4 and parts[4] and parts[4] != "0":
@@ -143,13 +143,13 @@ def get_vpn_statistics() -> Dict[str, Any]:
                                 }
                             except (ValueError, TypeError):
                                 pass
-                        
+
                         # Parse transfer stats (bytes)
                         transfer_rx = int(parts[5]) if len(parts) > 5 and parts[5] else 0
                         transfer_tx = int(parts[6]) if len(parts) > 6 and parts[6] else 0
-                        
+
                         persistent_keepalive = int(parts[7]) if len(parts) > 7 and parts[7] else None
-                        
+
                         current_interface_data["peers"].append({
                             "public_key": peer_public_key[:16] + "..." if len(peer_public_key) > 16 else peer_public_key,
                             "public_key_full": peer_public_key,
@@ -166,7 +166,7 @@ def get_vpn_statistics() -> Dict[str, Any]:
                             },
                             "persistent_keepalive": persistent_keepalive
                         })
-                    except (ValueError, IndexError) as e:
+                    except (ValueError, IndexError):
                         # Skip malformed peer lines
                         continue
 
@@ -205,12 +205,11 @@ def _format_duration(seconds: int) -> str:
     """Format duration in human-readable format"""
     if seconds < 60:
         return f"{seconds}s"
-    elif seconds < 3600:
+    if seconds < 3600:
         return f"{seconds // 60}m {seconds % 60}s"
-    else:
-        hours = seconds // 3600
-        minutes = (seconds % 3600) // 60
-        return f"{hours}h {minutes}m"
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    return f"{hours}h {minutes}m"
 
 
 def _find_networkmanager_connection() -> Optional[str]:
@@ -223,7 +222,7 @@ def _find_networkmanager_connection() -> Optional[str]:
             text=True,
             timeout=5
         )
-        
+
         if result.returncode == 0:
             for line in result.stdout.strip().split("\n"):
                 if "wireguard" in line.lower():
@@ -276,7 +275,7 @@ def connect_vpn() -> Dict[str, Any]:
         # Fallback: Try wg-quick (requires root)
         # Extract interface name from config file
         interface_name = vpn_config.stem  # Use filename without extension as interface name
-        
+
         wg_result = subprocess.run(
             ["sudo", "wg-quick", "up", str(vpn_config)],
             check=False, capture_output=True,

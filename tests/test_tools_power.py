@@ -6,14 +6,13 @@ License: GPL-3.0-or-later
 """
 
 import json
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from lab_testing.tools.power_monitor import (
-    start_power_monitoring,
-    get_power_logs,
     _start_dmm_power_monitoring,
-    _start_tasmota_power_monitoring
+    _start_tasmota_power_monitoring,
+    get_power_logs,
+    start_power_monitoring,
 )
 
 
@@ -25,18 +24,18 @@ class TestStartPowerMonitoring:
     def test_start_dmm_monitoring(self, mock_dmm, mock_config, sample_device_config):
         """Test starting DMM power monitoring"""
         mock_config.return_value = sample_device_config
-        
+
         with open(sample_device_config) as f:
             devices = json.load(f)["devices"]
-        
+
         mock_dmm.return_value = {
             "success": True,
             "monitor_type": "dmm",
             "process_id": 12345
         }
-        
+
         result = start_power_monitoring(monitor_type="dmm")
-        
+
         assert result["success"] is True
         assert result["monitor_type"] == "dmm"
         mock_dmm.assert_called_once()
@@ -46,18 +45,18 @@ class TestStartPowerMonitoring:
     def test_start_tasmota_monitoring(self, mock_tasmota, mock_config, sample_device_config):
         """Test starting Tasmota power monitoring"""
         mock_config.return_value = sample_device_config
-        
+
         with open(sample_device_config) as f:
             devices = json.load(f)["devices"]
-        
+
         mock_tasmota.return_value = {
             "success": True,
             "monitor_type": "tasmota",
             "device_id": "tasmota_switch_1"
         }
-        
+
         result = start_power_monitoring("tasmota_switch_1", monitor_type="tasmota")
-        
+
         assert result["success"] is True
         assert result["monitor_type"] == "tasmota"
         mock_tasmota.assert_called_once()
@@ -66,12 +65,12 @@ class TestStartPowerMonitoring:
     def test_auto_detect_tasmota(self, mock_config, sample_device_config):
         """Test auto-detection of Tasmota device"""
         mock_config.return_value = sample_device_config
-        
+
         with patch("lab_testing.tools.power_monitor._start_tasmota_power_monitoring") as mock_tasmota:
             mock_tasmota.return_value = {"success": True, "monitor_type": "tasmota"}
-            
+
             result = start_power_monitoring("tasmota_switch_1")
-            
+
             mock_tasmota.assert_called_once()
 
 
@@ -85,13 +84,13 @@ class TestDMMPowerMonitoring:
         mock_scripts_dir.return_value = tmp_path
         monitor_script = tmp_path / "current_monitor.py"
         monitor_script.write_text("# DMM monitor script")
-        
+
         mock_process = MagicMock()
         mock_process.pid = 12345
         mock_popen.return_value = mock_process
-        
+
         result = _start_dmm_power_monitoring(None, "test", 300, {})
-        
+
         assert result["success"] is True
         assert result["monitor_type"] == "dmm"
         assert result["process_id"] == 12345
@@ -100,9 +99,9 @@ class TestDMMPowerMonitoring:
     def test_dmm_monitoring_script_not_found(self, mock_scripts_dir, tmp_path):
         """Test DMM monitoring when script not found"""
         mock_scripts_dir.return_value = tmp_path
-        
+
         result = _start_dmm_power_monitoring(None, "test", 300, {})
-        
+
         assert result["success"] is False
         assert "not found" in result["error"].lower()
 
@@ -110,9 +109,10 @@ class TestDMMPowerMonitoring:
 class TestTasmotaPowerMonitoring:
     """Tests for Tasmota power monitoring"""
 
-    @patch("lab_testing.tools.power_monitor.tasmota_control")
+    @patch("lab_testing.tools.tasmota_control.tasmota_control")
     def test_tasmota_monitoring_success(self, mock_tasmota_control):
         """Test successful Tasmota monitoring start"""
+        from lab_testing.tools.power_monitor import _start_tasmota_power_monitoring
         mock_tasmota_control.return_value = {
             "success": True,
             "result": {"Energy": {"Total": 1.5, "Today": 0.1, "Power": 5.2}}
@@ -134,7 +134,7 @@ class TestTasmotaPowerMonitoring:
     def test_tasmota_monitoring_no_device_id(self):
         """Test Tasmota monitoring without device ID"""
         result = _start_tasmota_power_monitoring(None, "test", 300, {})
-        
+
         assert result["success"] is False
         assert "required" in result["error"].lower()
 
@@ -145,15 +145,16 @@ class TestTasmotaPowerMonitoring:
                 "device_type": "embedded_board"
             }
         }
-        
+
         result = _start_tasmota_power_monitoring("other_device", "test", 300, devices)
-        
+
         assert result["success"] is False
         assert "not a Tasmota device" in result["error"]
 
-    @patch("lab_testing.tools.power_monitor.tasmota_control")
+    @patch("lab_testing.tools.tasmota_control.tasmota_control")
     def test_tasmota_monitoring_no_energy_support(self, mock_tasmota_control):
         """Test Tasmota monitoring when energy not supported"""
+        from lab_testing.tools.power_monitor import _start_tasmota_power_monitoring
         mock_tasmota_control.return_value = {
             "success": False,
             "error": "Energy monitoring not available"
@@ -179,15 +180,15 @@ class TestGetPowerLogs:
         """Test getting power logs"""
         logs_dir = tmp_path / "power_logs"
         logs_dir.mkdir()
-        
+
         # Create test log files
         (logs_dir / "test_20250101_120000.csv").write_text("timestamp,power\n")
         (logs_dir / "test_20250101_130000.csv").write_text("timestamp,power\n")
-        
+
         mock_logs_dir.return_value = tmp_path
-        
+
         result = get_power_logs(limit=10)
-        
+
         assert result["success"] is True
         assert result["count"] == 2
         assert len(result["log_files"]) == 2
@@ -196,9 +197,9 @@ class TestGetPowerLogs:
     def test_get_power_logs_not_found(self, mock_logs_dir, tmp_path):
         """Test getting logs when directory doesn't exist"""
         mock_logs_dir.return_value = tmp_path
-        
+
         result = get_power_logs()
-        
+
         assert result["success"] is False
         assert "not found" in result["error"].lower()
 

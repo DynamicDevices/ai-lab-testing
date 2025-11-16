@@ -15,6 +15,8 @@ from typing import Any, Dict, List
 
 from mcp.types import TextContent
 
+from lab_testing.resources.help import get_help_content
+
 # Import all tool functions
 from lab_testing.tools.batch_operations import (
     batch_operation,
@@ -66,13 +68,27 @@ from lab_testing.tools.vpn_setup import (
     list_existing_configs,
     setup_networkmanager_connection,
 )
-from lab_testing.resources.help import get_help_content
 from lab_testing.utils.error_helper import (
     format_error_response,
     format_tool_response,
     validate_device_identifier,
 )
-from lab_testing.utils.logger import get_logger, log_tool_result, record_tool_call
+from lab_testing.utils.logger import get_logger, log_tool_result
+
+# Import record_tool_call from server.py (defined there)
+import sys
+from pathlib import Path
+_server_py = Path(__file__).parent.parent / "server.py"
+if _server_py.exists():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("lab_testing.server_module", _server_py)
+    server_module = importlib.util.module_from_spec(spec)
+    sys.modules["lab_testing.server_module"] = server_module
+    spec.loader.exec_module(server_module)
+    record_tool_call = server_module.record_tool_call
+else:
+    def record_tool_call(name: str, success: bool, duration: float):
+        pass  # Fallback
 
 logger = get_logger()
 
@@ -128,11 +144,11 @@ def handle_tool(
                     }
                 }
                 logger.warning(f"[{request_id}] {error_response['error']}")
-                log_tool_result(name, False, request_id, error_response['error'])
+                log_tool_result(name, False, request_id, error_response["error"])
                 duration = time.time() - start_time
                 record_tool_call(name, False, duration)
                 return [TextContent(type="text", text=json.dumps(error_response, indent=2))]
-            
+
             # Validate device identifier
             try:
                 devices_config = list_devices()
@@ -140,7 +156,7 @@ def handle_tool(
                 for device_type, devices in devices_config.get("devices_by_type", {}).items():
                     for dev in devices:
                         all_devices[dev["id"]] = dev
-                
+
                 validation = validate_device_identifier(device_id, all_devices)
                 if not validation["valid"] and validation["alternatives"]:
                     error_response = {
@@ -150,13 +166,13 @@ def handle_tool(
                         "related_tools": ["list_devices", "get_device_info"]
                     }
                     logger.warning(f"[{request_id}] {error_response['error']}")
-                    log_tool_result(name, False, request_id, error_response['error'])
+                    log_tool_result(name, False, request_id, error_response["error"])
                     duration = time.time() - start_time
                     record_tool_call(name, False, duration)
                     return [TextContent(type="text", text=json.dumps(error_response, indent=2))]
             except Exception:
                 pass
-            
+
             result = test_device(device_id)
             result = format_tool_response(result, name)
             _record_tool_result(name, result, request_id, start_time)
@@ -253,10 +269,10 @@ def handle_tool(
             scan_networks = arguments.get("scan_networks", True)
             test_configured_devices = arguments.get("test_configured_devices", True)
             max_hosts = arguments.get("max_hosts_per_network", 254)
-            
+
             network_map = create_network_map(networks, scan_networks, test_configured_devices, max_hosts)
             visualization = generate_network_map_visualization(network_map, format="text")
-            
+
             result = {
                 "network_map": network_map,
                 "visualization": visualization
