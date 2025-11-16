@@ -164,4 +164,3 @@ class TestMonitorLowPower:
         result = monitor_low_power("test_device", duration=10)
 
         assert result["success"] is False or "error" in result
-

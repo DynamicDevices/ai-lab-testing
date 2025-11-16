@@ -124,4 +124,3 @@ class TestRelatedTools:
 
         # Should have some general tools
         assert isinstance(tools, list)
-

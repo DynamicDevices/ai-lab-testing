@@ -219,4 +219,3 @@ class TestGetDeviceInfo:
         result = get_device_info("nonexistent")
 
         assert result is None
-
