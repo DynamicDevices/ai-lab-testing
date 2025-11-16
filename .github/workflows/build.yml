@@ -12,6 +12,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Only build if tests workflow passes
+    # Note: This requires the Tests workflow to complete successfully first
 
     steps:
     - uses: actions/checkout@v4

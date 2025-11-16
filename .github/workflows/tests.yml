@@ -30,8 +30,3 @@ jobs:
       run: |
         python -m pytest tests/ -v --tb=short
 
-    - name: Check code formatting
-      run: |
-        python -m ruff check . || true
-        python -m black --check . || true
-

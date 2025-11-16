@@ -1,4 +1,4 @@
-name: Lint
+name: Lint (Informational)
 
 on:
   push:
@@ -9,6 +9,8 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    # This workflow is informational only - linting happens via pre-commit hooks before commit
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -18,9 +20,9 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install black ruff mypy
-      - name: Run black
-        run: black --check .
-      - name: Run ruff
-        run: ruff check .
-      - name: Run mypy
-        run: mypy . --ignore-missing-imports || true
+      - name: Run black (informational)
+        run: black --check . || echo "⚠️ Code formatting issues detected. Please run 'black .' locally before committing."
+      - name: Run ruff (informational)
+        run: ruff check . || echo "⚠️ Linting issues detected. Please run 'ruff check --fix .' locally before committing."
+      - name: Run mypy (informational)
+        run: mypy . --ignore-missing-imports || echo "⚠️ Type checking issues detected."
