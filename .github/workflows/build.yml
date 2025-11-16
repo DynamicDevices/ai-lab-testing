@@ -1,19 +1,21 @@
 name: Build Package
 
 on:
+  workflow_run:
+    workflows: ["Tests"]
+    types:
+      - completed
   push:
-    branches: [main]
     tags:
       - 'v*'
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Only build if tests workflow passes
-    # Note: This requires the Tests workflow to complete successfully first
+    # Only build if tests workflow passed (for workflow_run trigger)
+    # For tags and manual dispatch, build anyway (tests should be run separately)
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
 
     steps:
     - uses: actions/checkout@v4
