@@ -53,7 +53,7 @@ Thumbs.db
 # Credential cache (never commit)
 **/credentials.json
 **/.cache/
-~/.cache/mcp-remote-testing/
+~/.cache/ai-lab-testing/
 
 # PyPI credentials
 .pypirc

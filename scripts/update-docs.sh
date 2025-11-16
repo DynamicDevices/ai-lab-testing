@@ -18,9 +18,9 @@ else
     echo "  ⚠ Architecture diagram missing: docs/architecture.mmd"
 fi
 
-# Count tools in server.py
-if [ -f "server.py" ]; then
-    TOOL_COUNT=$(grep -c 'name="' server.py || echo "0")
+# Count tools (now in tool_definitions.py)
+if [ -f "lab_testing/server/tool_definitions.py" ]; then
+    TOOL_COUNT=$(grep -c 'name="' lab_testing/server/tool_definitions.py || echo "0")
     echo "  ✓ Tools available: $TOOL_COUNT"
 fi
 
