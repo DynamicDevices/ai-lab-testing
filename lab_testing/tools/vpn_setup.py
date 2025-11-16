@@ -18,28 +18,21 @@ def check_wireguard_installed() -> Dict[str, Any]:
     """Check if WireGuard tools are installed"""
     try:
         result = subprocess.run(
-            ["wg", "--version"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5
+            ["wg", "--version"], check=False, capture_output=True, text=True, timeout=5
         )
         installed = result.returncode == 0
         return {
             "installed": installed,
             "version": result.stdout.strip() if installed else None,
-            "error": result.stderr if not installed else None
+            "error": result.stderr if not installed else None,
         }
     except FileNotFoundError:
         return {
             "installed": False,
-            "error": "WireGuard tools not found. Install with: sudo apt install wireguard-tools (Debian/Ubuntu) or sudo yum install wireguard-tools (RHEL/CentOS)"
+            "error": "WireGuard tools not found. Install with: sudo apt install wireguard-tools (Debian/Ubuntu) or sudo yum install wireguard-tools (RHEL/CentOS)",
         }
     except Exception as e:
-        return {
-            "installed": False,
-            "error": f"Failed to check WireGuard: {e!s}"
-        }
+        return {"installed": False, "error": f"Failed to check WireGuard: {e!s}"}
 
 
 def list_existing_configs() -> Dict[str, Any]:
@@ -49,11 +42,7 @@ def list_existing_configs() -> Dict[str, Any]:
     # Check secrets directory
     if SECRETS_DIR.exists():
         for conf_file in SECRETS_DIR.glob("*.conf"):
-            configs.append({
-                "path": str(conf_file),
-                "name": conf_file.name,
-                "location": "secrets"
-            })
+            configs.append({"path": str(conf_file), "name": conf_file.name, "location": "secrets"})
 
     # Check common system locations
     system_locations = [
@@ -64,25 +53,20 @@ def list_existing_configs() -> Dict[str, Any]:
     for location, loc_type in system_locations:
         if location.exists():
             for conf_file in location.glob("*.conf"):
-                configs.append({
-                    "path": str(conf_file),
-                    "name": conf_file.name,
-                    "location": loc_type
-                })
+                configs.append(
+                    {"path": str(conf_file), "name": conf_file.name, "location": loc_type}
+                )
 
-    return {
-        "configs": configs,
-        "count": len(configs)
-    }
+    return {"configs": configs, "count": len(configs)}
 
 
 def create_config_template(output_path: Optional[Path] = None) -> Dict[str, Any]:
     """
     Create a WireGuard configuration template.
-    
+
     Args:
         output_path: Where to save the template (default: SECRETS_DIR/wg0.conf)
-    
+
     Returns:
         Dictionary with creation results
     """
@@ -122,7 +106,7 @@ PersistentKeepalive = 25
             return {
                 "success": False,
                 "error": f"Configuration file already exists: {output_path}",
-                "path": str(output_path)
+                "path": str(output_path),
             }
 
         output_path.write_text(template)
@@ -131,32 +115,26 @@ PersistentKeepalive = 25
         return {
             "success": True,
             "path": str(output_path),
-            "message": f"Template created at {output_path}. Edit it with your VPN server details."
+            "message": f"Template created at {output_path}. Edit it with your VPN server details.",
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": f"Failed to create template: {e!s}"
-        }
+        return {"success": False, "error": f"Failed to create template: {e!s}"}
 
 
 def setup_networkmanager_connection(config_path: Path) -> Dict[str, Any]:
     """
     Import WireGuard config into NetworkManager.
-    
+
     This allows connecting without root privileges.
-    
+
     Args:
         config_path: Path to WireGuard .conf file
-    
+
     Returns:
         Dictionary with setup results
     """
     if not config_path.exists():
-        return {
-            "success": False,
-            "error": f"Configuration file not found: {config_path}"
-        }
+        return {"success": False, "error": f"Configuration file not found: {config_path}"}
 
     try:
         # Import into NetworkManager
@@ -168,30 +146,27 @@ def setup_networkmanager_connection(config_path: Path) -> Dict[str, Any]:
             check=False,
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
 
         if result.returncode == 0:
             return {
                 "success": True,
                 "connection_name": connection_name,
-                "message": f"WireGuard connection '{connection_name}' imported into NetworkManager. You can now connect without root."
+                "message": f"WireGuard connection '{connection_name}' imported into NetworkManager. You can now connect without root.",
             }
         return {
             "success": False,
             "error": f"Failed to import into NetworkManager: {result.stderr}",
-            "hint": "You can still use wg-quick with sudo, or import manually via NetworkManager GUI"
+            "hint": "You can still use wg-quick with sudo, or import manually via NetworkManager GUI",
         }
     except FileNotFoundError:
         return {
             "success": False,
-            "error": "NetworkManager (nmcli) not found. Install with: sudo apt install network-manager (Debian/Ubuntu)"
+            "error": "NetworkManager (nmcli) not found. Install with: sudo apt install network-manager (Debian/Ubuntu)",
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": f"Failed to setup NetworkManager connection: {e!s}"
-        }
+        return {"success": False, "error": f"Failed to setup NetworkManager connection: {e!s}"}
 
 
 def get_setup_instructions() -> Dict[str, Any]:
@@ -203,14 +178,14 @@ def get_setup_instructions() -> Dict[str, Any]:
                 "debian_ubuntu": "sudo apt update && sudo apt install wireguard-tools",
                 "rhel_centos": "sudo yum install wireguard-tools",
                 "arch": "sudo pacman -S wireguard-tools",
-                "macos": "brew install wireguard-tools"
+                "macos": "brew install wireguard-tools",
             },
             "2_generate_keys": {
                 "title": "Generate Key Pair",
                 "commands": [
                     "wg genkey | tee privatekey | wg pubkey > publickey",
-                    "# Share publickey with your VPN server administrator"
-                ]
+                    "# Share publickey with your VPN server administrator",
+                ],
             },
             "3_create_config": {
                 "title": "Create Configuration",
@@ -218,30 +193,29 @@ def get_setup_instructions() -> Dict[str, Any]:
                 "locations": [
                     f"{SECRETS_DIR}/wg0.conf (recommended)",
                     "~/.config/wireguard/wg0.conf",
-                    "/etc/wireguard/wg0.conf (requires root)"
-                ]
+                    "/etc/wireguard/wg0.conf (requires root)",
+                ],
             },
             "4_import_networkmanager": {
                 "title": "Import into NetworkManager (Optional)",
                 "description": "Allows connecting without root privileges",
-                "command": "nmcli connection import type wireguard file /path/to/wg0.conf"
+                "command": "nmcli connection import type wireguard file /path/to/wg0.conf",
             },
             "5_test_connection": {
                 "title": "Test Connection",
                 "description": "Use the connect_vpn tool or manually:",
                 "networkmanager": "nmcli connection up wg0",
-                "wg_quick": "sudo wg-quick up /path/to/wg0.conf"
+                "wg_quick": "sudo wg-quick up /path/to/wg0.conf",
             },
             "6_configure_mcp": {
                 "title": "Configure MCP Server",
                 "description": "Set VPN_CONFIG_PATH environment variable if using non-standard location:",
-                "example": "export VPN_CONFIG_PATH=/path/to/your/wg0.conf"
-            }
+                "example": "export VPN_CONFIG_PATH=/path/to/your/wg0.conf",
+            },
         },
         "current_config": {
             "detected": get_vpn_config() is not None,
-            "path": str(get_vpn_config()) if get_vpn_config() else None
+            "path": str(get_vpn_config()) if get_vpn_config() else None,
         },
-        "existing_configs": list_existing_configs()
+        "existing_configs": list_existing_configs(),
     }
-

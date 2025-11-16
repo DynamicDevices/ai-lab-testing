@@ -23,10 +23,13 @@ class TestTasmotaControl:
     @patch("lab_testing.tools.tasmota_control.get_lab_devices_config")
     @patch("lab_testing.tools.tasmota_control.subprocess.run")
     @patch("pathlib.Path.exists")
-    def test_tasmota_control_on(self, mock_exists, mock_run, mock_config, mock_scripts_dir, sample_device_config):
+    def test_tasmota_control_on(
+        self, mock_exists, mock_run, mock_config, mock_scripts_dir, sample_device_config
+    ):
         """Test turning Tasmota device on"""
         # Mock scripts directory and script existence
         from pathlib import Path
+
         mock_scripts_dir.return_value = Path("/fake/scripts")
         mock_exists.return_value = True  # Script exists
 
@@ -117,12 +120,9 @@ class TestPowerCycleDevice:
         mock_resolve.return_value = "test_device_1"
         mock_get_switch.return_value = {
             "tasmota_device_id": "tasmota_switch_1",
-            "tasmota_friendly_name": "Lab Power Switch 1"
+            "tasmota_friendly_name": "Lab Power Switch 1",
         }
-        mock_control.side_effect = [
-            {"success": True},  # off
-            {"success": True}   # on
-        ]
+        mock_control.side_effect = [{"success": True}, {"success": True}]  # off  # on
 
         result = power_cycle_device("test_device_1", off_duration=5)
 
@@ -142,4 +142,3 @@ class TestPowerCycleDevice:
 
             assert result["success"] is False
             assert "power switch" in result["error"].lower()
-

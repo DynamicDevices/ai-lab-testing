@@ -48,7 +48,7 @@ class ChangeTracker:
             data = {
                 "device_id": self.device_id,
                 "last_updated": datetime.utcnow().isoformat(),
-                "changes": self.changes
+                "changes": self.changes,
             }
             with self.changes_file.open("w") as f:
                 json.dump(data, f, indent=2)
@@ -62,11 +62,11 @@ class ChangeTracker:
         command: Optional[str] = None,
         files_modified: Optional[List[str]] = None,
         revert_command: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Record a change made to the device.
-        
+
         Args:
             change_type: Type of change (ssh_command, file_edit, package_install, config_change, etc.)
             description: Human-readable description
@@ -74,7 +74,7 @@ class ChangeTracker:
             files_modified: List of files that were modified
             revert_command: Command to revert this change (if available)
             metadata: Additional metadata
-            
+
         Returns:
             Change ID
         """
@@ -88,7 +88,7 @@ class ChangeTracker:
             "files_modified": files_modified or [],
             "revert_command": revert_command,
             "reverted": False,
-            "metadata": metadata or {}
+            "metadata": metadata or {},
         }
 
         self.changes.append(change)
@@ -113,11 +113,11 @@ class ChangeTracker:
     def revert_change(self, change_id: str, force: bool = False) -> Dict[str, Any]:
         """
         Revert a specific change.
-        
+
         Args:
             change_id: ID of change to revert
             force: Force revert even if already reverted
-            
+
         Returns:
             Result dictionary
         """
@@ -140,7 +140,7 @@ class ChangeTracker:
             "success": True,
             "change_id": change_id,
             "revert_command": change["revert_command"],
-            "message": "Change marked for reversion. Execute revert_command to complete."
+            "message": "Change marked for reversion. Execute revert_command to complete.",
         }
 
     def revert_all(self) -> Dict[str, Any]:
@@ -150,11 +150,13 @@ class ChangeTracker:
 
         for change in reversed(pending):  # Revert in reverse order
             if change.get("revert_command"):
-                revert_commands.append({
-                    "change_id": change["id"],
-                    "description": change["description"],
-                    "revert_command": change["revert_command"]
-                })
+                revert_commands.append(
+                    {
+                        "change_id": change["id"],
+                        "description": change["description"],
+                        "revert_command": change["revert_command"],
+                    }
+                )
                 change["reverted"] = True
                 change["reverted_at"] = datetime.utcnow().isoformat()
 
@@ -164,7 +166,7 @@ class ChangeTracker:
             "success": True,
             "reverted_count": len(revert_commands),
             "revert_commands": revert_commands,
-            "message": f"Marked {len(revert_commands)} changes for reversion"
+            "message": f"Marked {len(revert_commands)} changes for reversion",
         }
 
     def get_summary(self) -> Dict[str, Any]:
@@ -178,7 +180,7 @@ class ChangeTracker:
             "total_changes": total,
             "reverted": reverted,
             "pending": pending,
-            "last_change": self.changes[-1] if self.changes else None
+            "last_change": self.changes[-1] if self.changes else None,
         }
 
 
@@ -190,12 +192,12 @@ def get_tracker(device_id: str) -> ChangeTracker:
 def record_ssh_command(device_id: str, command: str, description: Optional[str] = None) -> str:
     """
     Record an SSH command execution.
-    
+
     Args:
         device_id: Device identifier
         command: Command that was executed
         description: Optional description
-        
+
     Returns:
         Change ID
     """
@@ -205,19 +207,19 @@ def record_ssh_command(device_id: str, command: str, description: Optional[str] 
         change_type="ssh_command",
         description=desc,
         command=command,
-        metadata={"command_length": len(command)}
+        metadata={"command_length": len(command)},
     )
 
 
 def record_file_backup(device_id: str, file_path: str, backup_path: str) -> str:
     """
     Record a file backup (for later restoration).
-    
+
     Args:
         device_id: Device identifier
         file_path: Original file path
         backup_path: Backup file path
-        
+
     Returns:
         Change ID
     """
@@ -227,6 +229,5 @@ def record_file_backup(device_id: str, file_path: str, backup_path: str) -> str:
         description=f"Backed up {file_path} to {backup_path}",
         files_modified=[file_path],
         revert_command=f"cp {backup_path} {file_path}",
-        metadata={"original_file": file_path, "backup_file": backup_path}
+        metadata={"original_file": file_path, "backup_file": backup_path},
     )
-

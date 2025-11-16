@@ -58,14 +58,11 @@ class TestToolHandlers:
         mock_power_cycle.return_value = {
             "success": True,
             "device_id": "test_device_1",
-            "message": "Power cycled successfully"
+            "message": "Power cycled successfully",
         }
 
         result = handle_tool(
-            "power_cycle_device",
-            {"device_id": "test_device_1", "off_duration": 5},
-            "test-123",
-            0.0
+            "power_cycle_device", {"device_id": "test_device_1", "off_duration": 5}, "test-123", 0.0
         )
 
         assert len(result) == 1
@@ -89,4 +86,3 @@ class TestToolHandlers:
         assert len(result) == 1
         result_text = json.loads(result[0].text)
         assert "error" in result_text or "suggestions" in result_text
-

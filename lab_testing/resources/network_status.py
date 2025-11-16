@@ -13,17 +13,12 @@ def get_network_status() -> Dict[str, Any]:
     vpn_status = get_vpn_status()
 
     # Get additional network info
-    network_info = {
-        "vpn": vpn_status
-    }
+    network_info = {"vpn": vpn_status}
 
     # Try to get routing info
     try:
         route_result = subprocess.run(
-            ["ip", "route", "show"],
-            check=False, capture_output=True,
-            text=True,
-            timeout=5
+            ["ip", "route", "show"], check=False, capture_output=True, text=True, timeout=5
         )
         if route_result.returncode == 0:
             network_info["routes"] = route_result.stdout.split("\n")[:10]  # First 10 routes
@@ -31,4 +26,3 @@ def get_network_status() -> Dict[str, Any]:
         pass
 
     return network_info
-

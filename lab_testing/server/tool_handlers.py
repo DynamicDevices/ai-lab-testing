@@ -81,14 +81,17 @@ from lab_testing.utils.logger import get_logger, log_tool_result
 _server_py = Path(__file__).parent.parent / "server.py"
 if _server_py.exists():
     import importlib.util
+
     spec = importlib.util.spec_from_file_location("lab_testing.server_module", _server_py)
     server_module = importlib.util.module_from_spec(spec)
     sys.modules["lab_testing.server_module"] = server_module
     spec.loader.exec_module(server_module)
     record_tool_call = server_module.record_tool_call
 else:
+
     def record_tool_call(name: str, success: bool, duration: float):
         pass  # Fallback
+
 
 logger = get_logger()
 
@@ -103,20 +106,17 @@ def _record_tool_result(name: str, result: Dict[str, Any], request_id: str, star
 
 
 def handle_tool(
-    name: str,
-    arguments: Dict[str, Any],
-    request_id: str,
-    start_time: float
+    name: str, arguments: Dict[str, Any], request_id: str, start_time: float
 ) -> List[TextContent]:
     """
     Handle tool execution. This function routes tool calls to appropriate handlers.
-    
+
     Args:
         name: Tool name
         arguments: Tool arguments
         request_id: Request ID for logging
         start_time: Start time for metrics
-    
+
     Returns:
         List of TextContent responses
     """
@@ -135,13 +135,13 @@ def handle_tool(
                     "suggestions": [
                         "Provide a device_id or friendly_name",
                         "Use 'list_devices' to see available devices",
-                        "You can use either the unique device_id or friendly_name"
+                        "You can use either the unique device_id or friendly_name",
                     ],
                     "related_tools": ["list_devices", "get_device_info"],
                     "example": {
                         "device_id": "imx93_eink_board_2",
-                        "or": "friendly_name like 'E-ink Board 2'"
-                    }
+                        "or": "friendly_name like 'E-ink Board 2'",
+                    },
                 }
                 logger.warning(f"[{request_id}] {error_response['error']}")
                 log_tool_result(name, False, request_id, error_response["error"])
@@ -163,7 +163,7 @@ def handle_tool(
                         "error": f"Device '{device_id}' not found",
                         "suggestions": validation["suggestions"],
                         "alternatives": validation["alternatives"],
-                        "related_tools": ["list_devices", "get_device_info"]
+                        "related_tools": ["list_devices", "get_device_info"],
                     }
                     logger.warning(f"[{request_id}] {error_response['error']}")
                     log_tool_result(name, False, request_id, error_response["error"])
@@ -216,6 +216,7 @@ def handle_tool(
 
         if name == "vpn_statistics":
             from lab_testing.tools.vpn_manager import get_vpn_statistics
+
             result = get_vpn_statistics()
             _record_tool_result(name, result, request_id, start_time)
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
@@ -251,14 +252,19 @@ def handle_tool(
                 config_path = Path(config_path)
             else:
                 from lab_testing.config import get_vpn_config
+
                 config_path = get_vpn_config()
                 if not config_path:
-                    error_msg = "No VPN config found. Create one first with create_vpn_config_template"
+                    error_msg = (
+                        "No VPN config found. Create one first with create_vpn_config_template"
+                    )
                     logger.warning(f"[{request_id}] {error_msg}")
                     log_tool_result(name, False, request_id, error_msg)
                     duration = time.time() - start_time
                     record_tool_call(name, False, duration)
-                    return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+                    return [
+                        TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))
+                    ]
             result = setup_networkmanager_connection(config_path)
             _record_tool_result(name, result, request_id, start_time)
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
@@ -270,13 +276,12 @@ def handle_tool(
             test_configured_devices = arguments.get("test_configured_devices", True)
             max_hosts = arguments.get("max_hosts_per_network", 254)
 
-            network_map = create_network_map(networks, scan_networks, test_configured_devices, max_hosts)
+            network_map = create_network_map(
+                networks, scan_networks, test_configured_devices, max_hosts
+            )
             visualization = generate_network_map_visualization(network_map, format="text")
 
-            result = {
-                "network_map": network_map,
-                "visualization": visualization
-            }
+            result = {"network_map": network_map, "visualization": visualization}
             _record_tool_result(name, result, request_id, start_time)
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
@@ -390,7 +395,15 @@ def handle_tool(
                 result = {
                     "success": False,
                     "error": f"Unknown topic: {topic}",
-                    "available_topics": ["all", "tools", "resources", "workflows", "troubleshooting", "examples", "configuration"]
+                    "available_topics": [
+                        "all",
+                        "tools",
+                        "resources",
+                        "workflows",
+                        "troubleshooting",
+                        "examples",
+                        "configuration",
+                    ],
                 }
 
             _record_tool_result(name, result, request_id, start_time)
@@ -489,7 +502,11 @@ def handle_tool(
                 duration = time.time() - start_time
                 record_tool_call(name, False, duration)
                 return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
-            result = batch_operation(device_ids, operation, **{k: v for k, v in arguments.items() if k not in ["device_ids", "operation"]})
+            result = batch_operation(
+                device_ids,
+                operation,
+                **{k: v for k, v in arguments.items() if k not in ["device_ids", "operation"]},
+            )
             _record_tool_result(name, result, request_id, start_time)
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
@@ -556,15 +573,9 @@ def handle_tool(
     except Exception as e:
         # Format error with helpful context
         error_response = format_error_response(
-            e,
-            context={
-                "tool_name": name,
-                "arguments": arguments,
-                "request_id": request_id
-            }
+            e, context={"tool_name": name, "arguments": arguments, "request_id": request_id}
         )
         error_response["tool"] = name
         error_response["request_id"] = request_id
         logger.error(f"[{request_id}] Tool execution failed: {e}", exc_info=True)
         return [TextContent(type="text", text=json.dumps(error_response, indent=2))]
-

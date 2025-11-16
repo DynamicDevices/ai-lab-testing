@@ -17,18 +17,13 @@ from lab_testing.utils.ssh_pool import get_pool_status
 _server_start_time = time.time()
 
 # Metrics tracking
-_metrics = {
-    "tool_calls": {},
-    "tool_errors": {},
-    "total_calls": 0,
-    "total_errors": 0
-}
+_metrics = {"tool_calls": {}, "tool_errors": {}, "total_calls": 0, "total_errors": 0}
 
 
 def record_tool_call(tool_name: str, success: bool, duration: float = 0.0):
     """
     Record tool call for metrics.
-    
+
     Args:
         tool_name: Name of the tool
         success: Whether call succeeded
@@ -42,7 +37,7 @@ def record_tool_call(tool_name: str, success: bool, duration: float = 0.0):
             "success": 0,
             "errors": 0,
             "total_duration": 0.0,
-            "avg_duration": 0.0
+            "avg_duration": 0.0,
         }
 
     _metrics["tool_calls"][tool_name]["count"] += 1
@@ -66,7 +61,7 @@ def record_tool_call(tool_name: str, success: bool, duration: float = 0.0):
 def get_health_status() -> Dict[str, Any]:
     """
     Get comprehensive health status of the MCP server.
-    
+
     Returns:
         Health status dictionary
     """
@@ -95,11 +90,9 @@ def get_health_status() -> Dict[str, Any]:
         success_rate = (success_count / _metrics["total_calls"]) * 100
 
     # Get top tools by usage
-    top_tools = sorted(
-        _metrics["tool_calls"].items(),
-        key=lambda x: x[1]["count"],
-        reverse=True
-    )[:5]
+    top_tools = sorted(_metrics["tool_calls"].items(), key=lambda x: x[1]["count"], reverse=True)[
+        :5
+    ]
 
     # Get SSH connection pool status
     try:
@@ -115,12 +108,9 @@ def get_health_status() -> Dict[str, Any]:
         "server_start_time": _server_start_time,
         "configuration": {
             "valid": config_valid,
-            "errors": config_errors if not config_valid else []
+            "errors": config_errors if not config_valid else [],
         },
-        "vpn": {
-            "connected": vpn_connected,
-            "status": vpn_status
-        },
+        "vpn": {"connected": vpn_connected, "status": vpn_status},
         "ssh_pool": pool_status,
         "metrics": {
             "total_calls": _metrics["total_calls"],
@@ -132,12 +122,12 @@ def get_health_status() -> Dict[str, Any]:
                     "calls": data["count"],
                     "success": data["success"],
                     "errors": data["errors"],
-                    "avg_duration_seconds": round(data["avg_duration"], 3)
+                    "avg_duration_seconds": round(data["avg_duration"], 3),
                 }
                 for name, data in top_tools
-            ]
+            ],
         },
-        "timestamp": time.time()
+        "timestamp": time.time(),
     }
 
     return health_status
@@ -146,7 +136,7 @@ def get_health_status() -> Dict[str, Any]:
 def get_metrics() -> Dict[str, Any]:
     """
     Get detailed metrics.
-    
+
     Returns:
         Metrics dictionary
     """
@@ -156,9 +146,15 @@ def get_metrics() -> Dict[str, Any]:
         "total_calls": _metrics["total_calls"],
         "total_errors": _metrics["total_errors"],
         "success_rate": round(
-            ((_metrics["total_calls"] - _metrics["total_errors"]) / _metrics["total_calls"] * 100)
-            if _metrics["total_calls"] > 0 else 0.0,
-            2
-        )
+            (
+                (
+                    (_metrics["total_calls"] - _metrics["total_errors"])
+                    / _metrics["total_calls"]
+                    * 100
+                )
+                if _metrics["total_calls"] > 0
+                else 0.0
+            ),
+            2,
+        ),
     }
-

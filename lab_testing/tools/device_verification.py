@@ -22,15 +22,17 @@ logger = get_logger()
 import subprocess
 
 
-def get_device_unique_id_from_ip(ip: str, username: str = "root", ssh_port: int = 22) -> Optional[str]:
+def get_device_unique_id_from_ip(
+    ip: str, username: str = "root", ssh_port: int = 22
+) -> Optional[str]:
     """
     Get unique ID (SOC serial number) from a device at a given IP address.
-    
+
     Args:
         ip: IP address to check
         username: SSH username
         ssh_port: SSH port
-    
+
     Returns:
         Unique ID or None if unable to retrieve
     """
@@ -40,17 +42,26 @@ def get_device_unique_id_from_ip(ip: str, username: str = "root", ssh_port: int 
             "cat /sys/devices/soc0/serial_number 2>/dev/null",
             "cat /proc/device-tree/serial-number 2>/dev/null | tr -d '\\0'",
             "cat /etc/machine-id 2>/dev/null",
-            "hostname 2>/dev/null"
+            "hostname 2>/dev/null",
         ]
 
         for cmd in commands:
             result = subprocess.run(
-                ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5",
-                 "-p", str(ssh_port), f"{username}@{ip}", cmd],
+                [
+                    "ssh",
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    "-o",
+                    "ConnectTimeout=5",
+                    "-p",
+                    str(ssh_port),
+                    f"{username}@{ip}",
+                    cmd,
+                ],
                 check=False,
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
 
             if result.returncode == 0 and result.stdout.strip():
@@ -66,13 +77,13 @@ def get_device_unique_id_from_ip(ip: str, username: str = "root", ssh_port: int 
 def verify_device_identity(device_id_or_name: str, ip: Optional[str] = None) -> Dict[str, Any]:
     """
     Verify that a device matches its expected identity by checking hostname and unique ID.
-    
+
     This is important in DHCP environments where IP addresses can change.
-    
+
     Args:
         device_id_or_name: Device identifier (device_id or friendly_name)
         ip: IP address to verify (optional, uses configured IP if not provided)
-    
+
     Returns:
         Dictionary with verification results
     """
@@ -82,7 +93,7 @@ def verify_device_identity(device_id_or_name: str, ip: Optional[str] = None) -> 
     if not device_id:
         return {
             "success": False,
-            "error": f"Device '{device_id_or_name}' not found in configuration"
+            "error": f"Device '{device_id_or_name}' not found in configuration",
         }
 
     # Load device config
@@ -92,10 +103,7 @@ def verify_device_identity(device_id_or_name: str, ip: Optional[str] = None) -> 
 
     devices = config.get("devices", {})
     if device_id not in devices:
-        return {
-            "success": False,
-            "error": f"Device '{device_id}' not found in configuration"
-        }
+        return {"success": False, "error": f"Device '{device_id}' not found in configuration"}
 
     device = devices[device_id]
 
@@ -104,10 +112,7 @@ def verify_device_identity(device_id_or_name: str, ip: Optional[str] = None) -> 
         ip = device.get("ip")
 
     if not ip:
-        return {
-            "success": False,
-            "error": "No IP address provided or configured"
-        }
+        return {"success": False, "error": "No IP address provided or configured"}
 
     # Get expected identity
     expected_hostname = device.get("hostname") or device_id
@@ -130,7 +135,7 @@ def verify_device_identity(device_id_or_name: str, ip: Optional[str] = None) -> 
         "actual_unique_id": None,
         "hostname_matches": False,
         "unique_id_matches": False,
-        "verified": False
+        "verified": False,
     }
 
     try:
@@ -143,9 +148,9 @@ def verify_device_identity(device_id_or_name: str, ip: Optional[str] = None) -> 
             # Check if hostname matches (can be partial match if hostname contains device_id)
             if expected_hostname:
                 verification["hostname_matches"] = (
-                    actual_hostname.lower() == expected_hostname.lower() or
-                    device_id.lower() in actual_hostname.lower() or
-                    actual_hostname.lower() in expected_hostname.lower()
+                    actual_hostname.lower() == expected_hostname.lower()
+                    or device_id.lower() in actual_hostname.lower()
+                    or actual_hostname.lower() in expected_hostname.lower()
                 )
             else:
                 # If no expected hostname, check if device_id appears in hostname
@@ -167,9 +172,9 @@ def verify_device_identity(device_id_or_name: str, ip: Optional[str] = None) -> 
 
                     if expected_unique_id:
                         verification["unique_id_matches"] = (
-                            actual_uid.lower() == expected_unique_id.lower() or
-                            expected_unique_id.lower() in actual_uid.lower() or
-                            actual_uid.lower() in expected_unique_id.lower()
+                            actual_uid.lower() == expected_unique_id.lower()
+                            or expected_unique_id.lower() in actual_uid.lower()
+                            or actual_uid.lower() in expected_unique_id.lower()
                         )
                     else:
                         # Store the unique ID for future reference
@@ -177,12 +182,16 @@ def verify_device_identity(device_id_or_name: str, ip: Optional[str] = None) -> 
                     break
 
         # Device is verified if hostname or unique ID matches
-        verification["verified"] = verification["hostname_matches"] or verification["unique_id_matches"]
+        verification["verified"] = (
+            verification["hostname_matches"] or verification["unique_id_matches"]
+        )
         verification["success"] = True
 
         # If IP changed but device is verified, suggest updating config
         if verification["verified"] and not verification["ip_matches"]:
-            verification["suggestion"] = f"Device verified but IP changed. Consider updating config: {ip} -> {device.get('ip')}"
+            verification["suggestion"] = (
+                f"Device verified but IP changed. Consider updating config: {ip} -> {device.get('ip')}"
+            )
 
     except Exception as e:
         verification["error"] = f"Verification failed: {e!s}"
@@ -194,14 +203,14 @@ def verify_device_identity(device_id_or_name: str, ip: Optional[str] = None) -> 
 def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> Dict[str, Any]:
     """
     Identify which device (if any) is at a given IP address by checking hostname/unique ID.
-    
+
     Useful for discovering devices or verifying IP assignments in DHCP environments.
-    
+
     Args:
         ip: IP address to check
         username: SSH username
         ssh_port: SSH port
-    
+
     Returns:
         Dictionary with device identification results
     """
@@ -213,18 +222,27 @@ def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> 
         "friendly_name": None,
         "hostname": None,
         "unique_id": None,
-        "matches": []
+        "matches": [],
     }
 
     try:
         # Get hostname from device
         hostname_result = subprocess.run(
-            ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5",
-             "-p", str(ssh_port), f"{username}@{ip}", "hostname"],
+            [
+                "ssh",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "ConnectTimeout=5",
+                "-p",
+                str(ssh_port),
+                f"{username}@{ip}",
+                "hostname",
+            ],
             check=False,
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
 
         if hostname_result.returncode == 0:
@@ -235,17 +253,26 @@ def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> 
         uid_commands = [
             "cat /sys/devices/soc0/serial_number 2>/dev/null",
             "cat /proc/device-tree/serial-number 2>/dev/null | tr -d '\\0'",
-            "cat /etc/machine-id 2>/dev/null"
+            "cat /etc/machine-id 2>/dev/null",
         ]
 
         for cmd in uid_commands:
             uid_result = subprocess.run(
-                ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5",
-                 "-p", str(ssh_port), f"{username}@{ip}", cmd],
+                [
+                    "ssh",
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    "-o",
+                    "ConnectTimeout=5",
+                    "-p",
+                    str(ssh_port),
+                    f"{username}@{ip}",
+                    cmd,
+                ],
                 check=False,
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
 
             if uid_result.returncode == 0:
@@ -271,7 +298,10 @@ def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> 
                 if hostname.lower() == expected_hostname.lower():
                     match_score += 10
                     match_reasons.append("exact_hostname_match")
-                elif device_id.lower() in hostname.lower() or hostname.lower() in expected_hostname.lower():
+                elif (
+                    device_id.lower() in hostname.lower()
+                    or hostname.lower() in expected_hostname.lower()
+                ):
                     match_score += 5
                     match_reasons.append("partial_hostname_match")
 
@@ -281,18 +311,24 @@ def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> 
                 if result["unique_id"].lower() == expected_uid.lower():
                     match_score += 10
                     match_reasons.append("exact_uid_match")
-                elif expected_uid.lower() in result["unique_id"].lower() or result["unique_id"].lower() in expected_uid.lower():
+                elif (
+                    expected_uid.lower() in result["unique_id"].lower()
+                    or result["unique_id"].lower() in expected_uid.lower()
+                ):
                     match_score += 5
                     match_reasons.append("partial_uid_match")
 
             if match_score > 0:
-                result["matches"].append({
-                    "device_id": device_id,
-                    "friendly_name": device_info.get("friendly_name") or device_info.get("name", device_id),
-                    "match_score": match_score,
-                    "reasons": match_reasons,
-                    "configured_ip": device_info.get("ip")
-                })
+                result["matches"].append(
+                    {
+                        "device_id": device_id,
+                        "friendly_name": device_info.get("friendly_name")
+                        or device_info.get("name", device_id),
+                        "match_score": match_score,
+                        "reasons": match_reasons,
+                        "configured_ip": device_info.get("ip"),
+                    }
+                )
 
         # Sort matches by score
         result["matches"].sort(key=lambda x: x["match_score"], reverse=True)
@@ -315,13 +351,13 @@ def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> 
 def update_device_ip_if_changed(device_id_or_name: str, new_ip: str) -> Dict[str, Any]:
     """
     Verify device identity and update IP if device is verified and IP has changed.
-    
+
     This helps keep device configs up-to-date in DHCP environments.
-    
+
     Args:
         device_id_or_name: Device identifier (device_id or friendly_name)
         new_ip: New IP address to verify and potentially update
-    
+
     Returns:
         Dictionary with update results
     """
@@ -332,7 +368,7 @@ def update_device_ip_if_changed(device_id_or_name: str, new_ip: str) -> Dict[str
         return {
             "success": False,
             "error": "Device identity verification failed. IP not updated.",
-            "verification": verification
+            "verification": verification,
         }
 
     device_id = verification.get("device_id")
@@ -343,19 +379,12 @@ def update_device_ip_if_changed(device_id_or_name: str, new_ip: str) -> Dict[str
         config = json.load(f)
 
     if device_id not in config.get("devices", {}):
-        return {
-            "success": False,
-            "error": f"Device '{device_id}' not found in configuration"
-        }
+        return {"success": False, "error": f"Device '{device_id}' not found in configuration"}
 
     old_ip = config["devices"][device_id].get("ip")
 
     if old_ip == new_ip:
-        return {
-            "success": True,
-            "message": "IP address unchanged",
-            "ip": new_ip
-        }
+        return {"success": True, "message": "IP address unchanged", "ip": new_ip}
 
     # Update IP in config
     config["devices"][device_id]["ip"] = new_ip
@@ -372,12 +401,11 @@ def update_device_ip_if_changed(device_id_or_name: str, new_ip: str) -> Dict[str
             "friendly_name": verification.get("friendly_name"),
             "old_ip": old_ip,
             "new_ip": new_ip,
-            "verification": verification
+            "verification": verification,
         }
     except Exception as e:
         return {
             "success": False,
             "error": f"Failed to update config file: {e!s}",
-            "verification": verification
+            "verification": verification,
         }
-

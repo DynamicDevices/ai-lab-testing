@@ -46,15 +46,17 @@ def list_devices() -> Dict[str, Any]:
         if device_type not in by_type:
             by_type[device_type] = []
         friendly_name = device_info.get("friendly_name") or device_info.get("name", device_id)
-        by_type[device_type].append({
-            "id": device_id,
-            "friendly_name": friendly_name,
-            "name": device_info.get("name", "Unknown"),
-            "hostname": device_info.get("hostname"),  # Unique ID from hostname
-            "ip": device_info.get("ip", "Unknown"),
-            "status": device_info.get("status", "unknown"),
-            "last_tested": device_info.get("last_tested")
-        })
+        by_type[device_type].append(
+            {
+                "id": device_id,
+                "friendly_name": friendly_name,
+                "name": device_info.get("name", "Unknown"),
+                "hostname": device_info.get("hostname"),  # Unique ID from hostname
+                "ip": device_info.get("ip", "Unknown"),
+                "status": device_info.get("status", "unknown"),
+                "last_tested": device_info.get("last_tested"),
+            }
+        )
 
     # Get infrastructure info
     infrastructure = config.get("lab_infrastructure", {})
@@ -65,14 +67,14 @@ def list_devices() -> Dict[str, Any]:
         "devices_by_type": by_type,
         "vpn_gateway": vpn_info.get("gateway_host", "Unknown"),
         "lab_networks": infrastructure.get("network_access", {}).get("lab_networks", []),
-        "summary": f"Found {len(devices)} configured devices across {len(by_type)} categories"
+        "summary": f"Found {len(devices)} configured devices across {len(by_type)} categories",
     }
 
 
 def test_device(device_id_or_name: str) -> Dict[str, Any]:  # noqa: PT
     """
     Test connectivity to a specific device.
-    
+
     Supports both device_id and friendly_name lookup.
 
     Args:
@@ -103,9 +105,10 @@ def test_device(device_id_or_name: str) -> Dict[str, Any]:  # noqa: PT
     try:
         result = subprocess.run(
             ["ping", "-c", "3", "-W", "2", ip],
-            check=False, capture_output=True,
+            check=False,
+            capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
 
         reachable = result.returncode == 0
@@ -115,8 +118,9 @@ def test_device(device_id_or_name: str) -> Dict[str, Any]:  # noqa: PT
         if device.get("ports", {}).get("ssh"):
             ssh_result = subprocess.run(
                 ["nc", "-z", "-w", "2", ip, str(device["ports"]["ssh"])],
-                check=False, capture_output=True,
-                timeout=5
+                check=False,
+                capture_output=True,
+                timeout=5,
             )
             ssh_available = ssh_result.returncode == 0
 
@@ -130,7 +134,7 @@ def test_device(device_id_or_name: str) -> Dict[str, Any]:  # noqa: PT
             "ip": ip,
             "ping_reachable": reachable,
             "ssh_available": ssh_available,
-            "ping_output": result.stdout if reachable else result.stderr
+            "ping_output": result.stdout if reachable else result.stderr,
         }
 
     except subprocess.TimeoutExpired:
@@ -138,21 +142,18 @@ def test_device(device_id_or_name: str) -> Dict[str, Any]:  # noqa: PT
             "success": False,
             "device_id": device_id,
             "ip": ip,
-            "error": "Connection test timed out"
+            "error": "Connection test timed out",
         }
     except Exception as e:
-        return {
-            "success": False,
-            "device_id": device_id,
-            "ip": ip,
-            "error": f"Test failed: {e!s}"
-        }
+        return {"success": False, "device_id": device_id, "ip": ip, "error": f"Test failed: {e!s}"}
 
 
-def ssh_to_device(device_id_or_name: str, command: str, username: Optional[str] = None) -> Dict[str, Any]:
+def ssh_to_device(
+    device_id_or_name: str, command: str, username: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Execute an SSH command on a device.
-    
+
     Supports both device_id and friendly_name lookup.
 
     Args:
@@ -190,6 +191,7 @@ def ssh_to_device(device_id_or_name: str, command: str, username: Optional[str] 
 
     # Record change for tracking
     from lab_testing.utils.change_tracker import record_ssh_command
+
     change_id = record_ssh_command(device_id, command)
 
     # Execute SSH command with preferred authentication
@@ -204,17 +206,31 @@ def ssh_to_device(device_id_or_name: str, command: str, username: Optional[str] 
         if command.strip():
             # Simple heuristic: use first word as process name
             first_word = command.strip().split()[0]
-            if first_word and "/" not in first_word and first_word not in ["echo", "test", "cat", "grep"]:
+            if (
+                first_word
+                and "/" not in first_word
+                and first_word not in ["echo", "test", "cat", "grep"]
+            ):
                 process_pattern = first_word
                 # Ensure no conflicting process is running
-                ensure_single_process(ip, username, device_id, process_pattern, command, kill_existing=True, force_kill=False)
+                ensure_single_process(
+                    ip,
+                    username,
+                    device_id,
+                    process_pattern,
+                    command,
+                    kill_existing=True,
+                    force_kill=False,
+                )
 
         # Try using connection pool
         try:
             result = execute_via_pool(ip, username, command, device_id, ssh_port)
             logger.debug(f"Executed via connection pool: {device_id}")
         except Exception as pool_error:
-            logger.debug(f"Connection pool failed for {device_id}, using direct connection: {pool_error}")
+            logger.debug(
+                f"Connection pool failed for {device_id}, using direct connection: {pool_error}"
+            )
             # Fallback to direct connection
             ssh_cmd = get_ssh_command(ip, username, command, device_id, use_password=False)
 
@@ -226,10 +242,7 @@ def ssh_to_device(device_id_or_name: str, command: str, username: Optional[str] 
                 ssh_cmd.insert(port_idx + 1, str(ssh_port))
 
             result = subprocess.run(
-                ssh_cmd,
-                check=False, capture_output=True,
-                text=True,
-                timeout=30
+                ssh_cmd, check=False, capture_output=True, text=True, timeout=30
             )
 
         friendly_name = device.get("friendly_name") or device.get("name", device_id)
@@ -244,7 +257,7 @@ def ssh_to_device(device_id_or_name: str, command: str, username: Optional[str] 
             "exit_code": result.returncode,
             "stdout": result.stdout,
             "stderr": result.stderr,
-            "change_id": change_id  # Include change tracking ID
+            "change_id": change_id,  # Include change tracking ID
         }
 
     except subprocess.TimeoutExpired:
@@ -260,14 +273,14 @@ def ssh_to_device(device_id_or_name: str, command: str, username: Optional[str] 
 def resolve_device_identifier(identifier: str) -> Optional[str]:
     """
     Resolve a device identifier (device_id or friendly_name) to the actual device_id.
-    
+
     Devices can be referenced by:
     - device_id (unique ID, typically from hostname/SOC ID)
     - friendly_name (user-friendly name configured in device config)
-    
+
     Args:
         identifier: Device identifier (device_id or friendly_name)
-        
+
     Returns:
         Actual device_id if found, None otherwise
     """
@@ -294,12 +307,12 @@ def resolve_device_identifier(identifier: str) -> Optional[str]:
 def get_device_info(device_id_or_name: str) -> Optional[Dict[str, Any]]:
     """
     Get device information from configuration.
-    
+
     Supports both device_id and friendly_name lookup.
-    
+
     Args:
         device_id_or_name: Device identifier (device_id or friendly_name)
-        
+
     Returns:
         Device information dictionary or None if not found
     """
@@ -319,4 +332,3 @@ def get_device_info(device_id_or_name: str) -> Optional[Dict[str, Any]]:
             device["friendly_name"] = device.get("name", device_id)
         return device
     return None
-

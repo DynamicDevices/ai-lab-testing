@@ -27,20 +27,22 @@ LAB_DEVICES_JSON = CONFIG_DIR / "lab_devices.json"
 # If not set, searches common locations
 VPN_CONFIG_PATH_ENV = os.getenv("VPN_CONFIG_PATH")
 
+
 def get_lab_devices_config() -> Path:
     """Get path to lab devices configuration file"""
     return LAB_DEVICES_JSON
 
+
 def get_vpn_config() -> Optional[Path]:
     """
     Get path to VPN configuration file.
-    
+
     Search order:
     1. VPN_CONFIG_PATH environment variable (if set)
     2. Common filenames in SECRETS_DIR (wg0.conf, *.conf)
     3. Common system locations (~/.config/wireguard/*.conf, /etc/wireguard/*.conf)
     4. NetworkManager WireGuard connections
-    
+
     Returns:
         Path to VPN config file, or None if not found
     """
@@ -86,13 +88,16 @@ def get_vpn_config() -> Optional[Path]:
 
     return None
 
+
 def get_scripts_dir() -> Path:
     """Get path to scripts directory"""
     return SCRIPTS_DIR
 
+
 def get_logs_dir() -> Path:
     """Get path to logs directory"""
     return LOGS_DIR
+
 
 def validate_config() -> tuple:
     """Validate that required configuration files exist"""
@@ -108,4 +113,3 @@ def validate_config() -> tuple:
         errors.append(f"Scripts directory not found: {SCRIPTS_DIR}")
 
     return len(errors) == 0, errors
-

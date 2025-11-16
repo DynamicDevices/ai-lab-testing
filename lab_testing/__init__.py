@@ -10,4 +10,3 @@ Maintainer: Alex J Lennon <ajlennon@dynamicdevices.co.uk>
 from lab_testing.version import __version__
 
 __all__ = ["__version__"]
-

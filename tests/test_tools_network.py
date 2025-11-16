@@ -30,21 +30,16 @@ class TestCreateNetworkMap:
         mock_test.return_value = {
             "device_id": "test_device_1",
             "ping_reachable": True,
-            "ssh_available": True
+            "ssh_available": True,
         }
-        mock_ssh.return_value = {
-            "success": True,
-            "stdout": "up 2 days, 3 hours"
-        }
+        mock_ssh.return_value = {"success": True, "stdout": "up 2 days, 3 hours"}
         mock_get_switch.return_value = {
             "tasmota_device_id": "tasmota_switch_1",
-            "tasmota_friendly_name": "Lab Power Switch 1"
+            "tasmota_friendly_name": "Lab Power Switch 1",
         }
 
         result = create_network_map(
-            networks=None,
-            scan_networks=False,
-            test_configured_devices=True
+            networks=None, scan_networks=False, test_configured_devices=True
         )
 
         assert "configured_devices" in result
@@ -69,10 +64,7 @@ class TestVerifyDeviceIdentity:
         """Test verifying device identity when it matches"""
         mock_resolve.return_value = "test_device_1"
         mock_config.return_value = sample_device_config
-        mock_ssh.return_value = {
-            "success": True,
-            "stdout": "test-board-1"
-        }
+        mock_ssh.return_value = {"success": True, "stdout": "test-board-1"}
 
         result = verify_device_identity("test_device_1", "192.168.1.100")
 
@@ -82,14 +74,13 @@ class TestVerifyDeviceIdentity:
     @patch("lab_testing.tools.device_verification.get_lab_devices_config")
     @patch("lab_testing.tools.device_verification.ssh_to_device")
     @patch("lab_testing.tools.device_verification.resolve_device_identifier")
-    def test_verify_identity_mismatch(self, mock_resolve, mock_ssh, mock_config, sample_device_config):
+    def test_verify_identity_mismatch(
+        self, mock_resolve, mock_ssh, mock_config, sample_device_config
+    ):
         """Test verifying device identity when it doesn't match"""
         mock_resolve.return_value = "test_device_1"
         mock_config.return_value = sample_device_config
-        mock_ssh.return_value = {
-            "success": True,
-            "stdout": "different-board"
-        }
+        mock_ssh.return_value = {"success": True, "stdout": "different-board"}
 
         result = verify_device_identity("test_device_1", "192.168.1.100")
 
@@ -101,4 +92,3 @@ class TestVerifyDeviceIdentity:
         # The verification should fail because "test_device_1" is not in "different-board"
         # But the function might still return verified=True if unique_id matches, so we check hostname_matches
         assert result.get("hostname_matches") is False or result.get("verified") is False
-

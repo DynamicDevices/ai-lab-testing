@@ -18,7 +18,7 @@ class MCPError(Exception):
         details: Optional[dict] = None,
         suggestions: Optional[list] = None,
         fixes: Optional[list] = None,
-        related_tools: Optional[list] = None
+        related_tools: Optional[list] = None,
     ):
         super().__init__(message)
         self.message = message
@@ -30,11 +30,7 @@ class MCPError(Exception):
 
     def to_dict(self) -> dict:
         """Convert exception to dictionary for JSON serialization with helpful context"""
-        result = {
-            "error": self.message,
-            "error_code": self.error_code,
-            "details": self.details
-        }
+        result = {"error": self.message, "error_code": self.error_code, "details": self.details}
 
         if self.suggestions:
             result["suggestions"] = self.suggestions
@@ -68,12 +64,12 @@ class DeviceNotFoundError(DeviceError):
             f"Device '{device_id}' not found in configuration",
             "Use 'list_devices' tool to see all available devices",
             "Device identifiers are case-sensitive",
-            "You can use either device_id (unique ID) or friendly_name"
+            "You can use either device_id (unique ID) or friendly_name",
         ]
         fixes = [
             "Check spelling of device_id",
             "List devices: 'list_devices' to see available options",
-            "Try using the friendly_name if configured"
+            "Try using the friendly_name if configured",
         ]
         related_tools = ["list_devices", "get_device_info"]
         super().__init__(
@@ -82,7 +78,7 @@ class DeviceNotFoundError(DeviceError):
             suggestions=suggestions,
             fixes=fixes,
             related_tools=related_tools,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -94,13 +90,13 @@ class DeviceConnectionError(DeviceError):
             "Check VPN connection status: 'vpn_status'",
             "Verify device is online: 'test_device'",
             "Device IP may have changed (DHCP): 'verify_device_identity'",
-            "Check network connectivity"
+            "Check network connectivity",
         ]
         fixes = [
             "Connect to VPN: 'connect_vpn' if not connected",
             "Verify device identity: 'verify_device_identity'",
             "Update device IP if changed: 'update_device_ip'",
-            "Check device power and network cables"
+            "Check device power and network cables",
         ]
         related_tools = ["vpn_status", "test_device", "verify_device_identity", "connect_vpn"]
         super().__init__(
@@ -109,7 +105,7 @@ class DeviceConnectionError(DeviceError):
             suggestions=suggestions,
             fixes=fixes,
             related_tools=related_tools,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -128,7 +124,9 @@ class VPNError(NetworkError):
 class SSHError(MCPError):
     """SSH-related errors"""
 
-    def __init__(self, message: str, device_id: Optional[str] = None, command: Optional[str] = None, **kwargs):
+    def __init__(
+        self, message: str, device_id: Optional[str] = None, command: Optional[str] = None, **kwargs
+    ):
         super().__init__(message, **kwargs)
         self.device_id = device_id
         self.command = command
@@ -141,12 +139,12 @@ class SSHError(MCPError):
         suggestions = [
             "Verify device connectivity: 'test_device'",
             "Check SSH credentials and key configuration",
-            "Verify device is online and accessible"
+            "Verify device is online and accessible",
         ]
         fixes = [
             "Test device connectivity first: 'test_device'",
             "Check SSH user and port in device configuration",
-            "Verify VPN connection if device is remote"
+            "Verify VPN connection if device is remote",
         ]
         related_tools = ["test_device", "vpn_status", "get_device_info"]
 
@@ -176,7 +174,13 @@ class OTAError(MCPError):
 class ContainerError(MCPError):
     """Container deployment errors"""
 
-    def __init__(self, message: str, device_id: Optional[str] = None, container_name: Optional[str] = None, **kwargs):
+    def __init__(
+        self,
+        message: str,
+        device_id: Optional[str] = None,
+        container_name: Optional[str] = None,
+        **kwargs,
+    ):
         super().__init__(message, **kwargs)
         self.device_id = device_id
         self.container_name = container_name
@@ -184,4 +188,3 @@ class ContainerError(MCPError):
             self.details["device_id"] = device_id
         if container_name:
             self.details["container_name"] = container_name
-

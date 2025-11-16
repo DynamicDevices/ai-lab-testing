@@ -19,23 +19,27 @@ logger = get_logger()
 _process_tracking: Dict[str, Dict[str, List[int]]] = defaultdict(lambda: defaultdict(list))
 
 
-def find_running_processes(device_ip: str, username: str, device_id: str, process_pattern: str) -> List[Tuple[int, str]]:
+def find_running_processes(
+    device_ip: str, username: str, device_id: str, process_pattern: str
+) -> List[Tuple[int, str]]:
     """
     Find running processes matching a pattern on a remote device.
-    
+
     Args:
         device_ip: Device IP address
         username: SSH username
         device_id: Device identifier
         process_pattern: Process name or command pattern to search for
-        
+
     Returns:
         List of (PID, command) tuples
     """
     try:
         # Use pgrep or ps to find processes
         # Try pgrep first (more reliable)
-        cmd = f"pgrep -af '{process_pattern}' || ps aux | grep -E '{process_pattern}' | grep -v grep"
+        cmd = (
+            f"pgrep -af '{process_pattern}' || ps aux | grep -E '{process_pattern}' | grep -v grep"
+        )
         result = execute_via_pool(device_ip, username, cmd, device_id)
 
         if result.returncode != 0:
@@ -75,11 +79,11 @@ def kill_stale_processes(
     device_id: str,
     process_pattern: str,
     kill_timeout: int = 5,
-    force: bool = False
+    force: bool = False,
 ) -> Dict[str, any]:
     """
     Kill stale processes matching a pattern on a remote device.
-    
+
     Args:
         device_ip: Device IP address
         username: SSH username
@@ -87,7 +91,7 @@ def kill_stale_processes(
         process_pattern: Process name or command pattern to kill
         kill_timeout: Seconds to wait before force kill
         force: If True, use SIGKILL immediately
-        
+
     Returns:
         Dictionary with kill results
     """
@@ -97,7 +101,7 @@ def kill_stale_processes(
         return {
             "killed": 0,
             "pids": [],
-            "message": f"No processes found matching '{process_pattern}'"
+            "message": f"No processes found matching '{process_pattern}'",
         }
 
     killed_pids = []
@@ -144,7 +148,7 @@ def kill_stale_processes(
         "pids": killed_pids,
         "failed": len(failed_pids),
         "failed_pids": failed_pids,
-        "message": f"Killed {len(killed_pids)} process(es), {len(failed_pids)} failed"
+        "message": f"Killed {len(killed_pids)} process(es), {len(failed_pids)} failed",
     }
 
 
@@ -155,11 +159,11 @@ def ensure_single_process(
     process_pattern: str,
     command: str,
     kill_existing: bool = True,
-    force_kill: bool = False
+    force_kill: bool = False,
 ) -> Tuple[bool, Optional[Dict[str, any]]]:
     """
     Ensure only one instance of a process is running. Kill existing if needed.
-    
+
     Args:
         device_ip: Device IP address
         username: SSH username
@@ -168,7 +172,7 @@ def ensure_single_process(
         command: Command to run (for tracking)
         kill_existing: If True, kill existing processes before starting new one
         force_kill: If True, use SIGKILL immediately
-        
+
     Returns:
         Tuple of (success, kill_result_dict)
     """
@@ -180,17 +184,18 @@ def ensure_single_process(
     if not kill_existing:
         return False, {
             "error": f"Process already running: {existing[0][1][:50]}",
-            "pids": [pid for pid, _ in existing]
+            "pids": [pid for pid, _ in existing],
         }
 
     # Kill existing processes
     kill_result = kill_stale_processes(
-        device_ip, username, device_id, process_pattern,
-        force=force_kill
+        device_ip, username, device_id, process_pattern, force=force_kill
     )
 
     if kill_result["failed"] > 0:
-        logger.warning(f"Some processes failed to kill on {device_id}: {kill_result['failed_pids']}")
+        logger.warning(
+            f"Some processes failed to kill on {device_id}: {kill_result['failed_pids']}"
+        )
 
     return kill_result["killed"] > 0 or len(existing) == 0, kill_result
 
@@ -201,10 +206,12 @@ def track_process(device_id: str, process_pattern: str, pid: int):
     logger.debug(f"Tracking process {pid} for {device_id}:{process_pattern}")
 
 
-def cleanup_tracked_processes(device_ip: str, username: str, device_id: str, process_pattern: Optional[str] = None):
+def cleanup_tracked_processes(
+    device_ip: str, username: str, device_id: str, process_pattern: Optional[str] = None
+):
     """
     Clean up tracked processes for a device.
-    
+
     Args:
         device_ip: Device IP address
         username: SSH username
@@ -232,10 +239,12 @@ def cleanup_tracked_processes(device_ip: str, username: str, device_id: str, pro
         _process_tracking[device_id][pattern].clear()
 
 
-def get_process_status(device_ip: str, username: str, device_id: str, process_pattern: str) -> Dict[str, any]:
+def get_process_status(
+    device_ip: str, username: str, device_id: str, process_pattern: str
+) -> Dict[str, any]:
     """
     Get status of processes matching a pattern.
-    
+
     Returns:
         Dictionary with process information
     """
@@ -245,8 +254,6 @@ def get_process_status(device_ip: str, username: str, device_id: str, process_pa
         "pattern": process_pattern,
         "count": len(processes),
         "processes": [
-            {"pid": pid, "command": cmd[:100]}  # Truncate long commands
-            for pid, cmd in processes
-        ]
+            {"pid": pid, "command": cmd[:100]} for pid, cmd in processes  # Truncate long commands
+        ],
     }
-

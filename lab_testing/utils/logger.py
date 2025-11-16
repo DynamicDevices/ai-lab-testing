@@ -18,17 +18,17 @@ def setup_logger(
     name: str = "lab_testing",
     level: int = logging.INFO,
     log_to_file: bool = True,
-    log_to_console: bool = True
+    log_to_console: bool = True,
 ) -> logging.Logger:
     """
     Set up structured logger for MCP server.
-    
+
     Args:
         name: Logger name
         level: Logging level (DEBUG, INFO, WARNING, ERROR)
         log_to_file: Enable file logging
         log_to_console: Enable console logging
-        
+
     Returns:
         Configured logger instance
     """
@@ -47,7 +47,7 @@ def setup_logger(
     # Formatter with timestamp, level, name, and message
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
     # File handler (always enabled for debugging)
@@ -81,10 +81,10 @@ def setup_logger(
 def get_logger(name: Optional[str] = None) -> logging.Logger:
     """
     Get logger instance. Creates one if it doesn't exist.
-    
+
     Args:
         name: Optional logger name (uses default if not provided)
-        
+
     Returns:
         Logger instance
     """
@@ -100,7 +100,7 @@ def get_logger(name: Optional[str] = None) -> logging.Logger:
 def set_log_level(level: int):
     """
     Set logging level for all handlers.
-    
+
     Args:
         level: Logging level (logging.DEBUG, logging.INFO, etc.)
     """
@@ -117,7 +117,7 @@ def set_log_level(level: int):
 def log_tool_call(tool_name: str, arguments: dict, request_id: Optional[str] = None):
     """
     Log tool call with request ID for tracing.
-    
+
     Args:
         tool_name: Name of the tool being called
         arguments: Tool arguments
@@ -131,10 +131,12 @@ def log_tool_call(tool_name: str, arguments: dict, request_id: Optional[str] = N
     logger.debug(f"Arguments: {arguments}")
 
 
-def log_tool_result(tool_name: str, success: bool, request_id: Optional[str] = None, error: Optional[str] = None):
+def log_tool_result(
+    tool_name: str, success: bool, request_id: Optional[str] = None, error: Optional[str] = None
+):
     """
     Log tool execution result.
-    
+
     Args:
         tool_name: Name of the tool
         success: Whether execution succeeded
@@ -152,4 +154,3 @@ def log_tool_result(tool_name: str, success: bool, request_id: Optional[str] = N
         logger.warning(msg)
         if error:
             logger.error(f"Error: {error}")
-

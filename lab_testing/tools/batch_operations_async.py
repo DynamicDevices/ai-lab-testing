@@ -46,16 +46,18 @@ def get_device_groups() -> Dict[str, List[str]]:
         return {"error": f"Failed to get device groups: {e!s}"}
 
 
-async def _run_operation_async(device_id: str, operation: str, semaphore: asyncio.Semaphore, **kwargs) -> tuple:
+async def _run_operation_async(
+    device_id: str, operation: str, semaphore: asyncio.Semaphore, **kwargs
+) -> tuple:
     """
     Run a single operation on a device asynchronously.
-    
+
     Args:
         device_id: Device identifier
         operation: Operation to perform
         semaphore: Semaphore for concurrency control
         **kwargs: Operation-specific parameters
-        
+
     Returns:
         Tuple of (device_id, result)
     """
@@ -65,31 +67,40 @@ async def _run_operation_async(device_id: str, operation: str, semaphore: asynci
 
             if operation == "test":
                 from lab_testing.tools.device_manager import test_device
+
                 # Run in thread pool since it's synchronous
                 loop = asyncio.get_event_loop()
                 result = await loop.run_in_executor(None, test_device, device_id)
             elif operation == "ssh":
                 from lab_testing.tools.device_manager import ssh_to_device
+
                 command = kwargs.get("command", "")
                 username = kwargs.get("username")
                 loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(None, ssh_to_device, device_id, command, username)
+                result = await loop.run_in_executor(
+                    None, ssh_to_device, device_id, command, username
+                )
             elif operation == "ota_check":
                 from lab_testing.tools.ota_manager import check_ota_status
+
                 loop = asyncio.get_event_loop()
                 result = await loop.run_in_executor(None, check_ota_status, device_id)
             elif operation == "system_status":
                 from lab_testing.tools.ota_manager import get_system_status
+
                 loop = asyncio.get_event_loop()
                 result = await loop.run_in_executor(None, get_system_status, device_id)
             elif operation == "list_containers":
                 from lab_testing.tools.ota_manager import list_containers
+
                 loop = asyncio.get_event_loop()
                 result = await loop.run_in_executor(None, list_containers, device_id)
             else:
                 result = {"error": f"Unknown operation: {operation}"}
 
-            logger.debug(f"Completed {operation} on {device_id}: {'success' if result.get('success') else 'failed'}")
+            logger.debug(
+                f"Completed {operation} on {device_id}: {'success' if result.get('success') else 'failed'}"
+            )
             return device_id, result
 
         except Exception as e:
@@ -98,20 +109,17 @@ async def _run_operation_async(device_id: str, operation: str, semaphore: asynci
 
 
 async def batch_operation_async(
-    device_ids: List[str],
-    operation: str,
-    max_concurrent: int = 5,
-    **kwargs
+    device_ids: List[str], operation: str, max_concurrent: int = 5, **kwargs
 ) -> Dict[str, Any]:
     """
     Execute operation on multiple devices in parallel.
-    
+
     Args:
         device_ids: List of device identifiers
         operation: Operation to perform (test, ssh, ota_check, etc.)
         max_concurrent: Maximum concurrent operations (default: 5)
         **kwargs: Operation-specific parameters
-        
+
     Returns:
         Results for each device with summary
     """
@@ -121,15 +129,16 @@ async def batch_operation_async(
     if not operation:
         return {"error": "No operation specified"}
 
-    logger.info(f"Starting async batch operation '{operation}' on {len(device_ids)} devices (max_concurrent={max_concurrent})")
+    logger.info(
+        f"Starting async batch operation '{operation}' on {len(device_ids)} devices (max_concurrent={max_concurrent})"
+    )
 
     # Create semaphore for concurrency control
     semaphore = asyncio.Semaphore(max_concurrent)
 
     # Create tasks for all devices
     tasks = [
-        _run_operation_async(device_id, operation, semaphore, **kwargs)
-        for device_id in device_ids
+        _run_operation_async(device_id, operation, semaphore, **kwargs) for device_id in device_ids
     ]
 
     # Execute all tasks in parallel
@@ -150,7 +159,9 @@ async def batch_operation_async(
     success_count = sum(1 for r in results.values() if r.get("success") or "error" not in str(r))
     total_count = len(device_ids)
 
-    logger.info(f"Batch operation completed in {duration:.2f}s: {success_count}/{total_count} successful")
+    logger.info(
+        f"Batch operation completed in {duration:.2f}s: {success_count}/{total_count} successful"
+    )
 
     return {
         "operation": operation,
@@ -159,7 +170,7 @@ async def batch_operation_async(
         "failed": total_count - success_count,
         "duration_seconds": round(duration, 2),
         "max_concurrent": max_concurrent,
-        "results": results
+        "results": results,
     }
 
 
@@ -167,17 +178,17 @@ async def regression_test_async(
     device_group: Optional[str] = None,
     device_ids: Optional[List[str]] = None,
     test_sequence: Optional[List[str]] = None,
-    max_concurrent: int = 5
+    max_concurrent: int = 5,
 ) -> Dict[str, Any]:
     """
     Run regression test sequence on multiple devices in parallel.
-    
+
     Args:
         device_group: Device group/tag to test (optional)
         device_ids: Specific device IDs to test (optional)
         test_sequence: List of test operations to run
         max_concurrent: Maximum concurrent operations per test
-        
+
     Returns:
         Test results
     """
@@ -197,10 +208,12 @@ async def regression_test_async(
         test_sequence = [
             "test",  # Connectivity test
             "system_status",  # System health
-            "ota_check"  # OTA status
+            "ota_check",  # OTA status
         ]
 
-    logger.info(f"Starting async regression test on {len(target_devices)} devices with sequence: {test_sequence}")
+    logger.info(
+        f"Starting async regression test on {len(target_devices)} devices with sequence: {test_sequence}"
+    )
 
     # Run test sequence (each test runs in parallel across devices)
     all_results = {}
@@ -215,11 +228,11 @@ async def regression_test_async(
 
     # Overall summary
     total_tests = len(test_sequence) * len(target_devices)
-    successful_tests = sum(
-        r.get("successful", 0) for r in all_results.values()
-    )
+    successful_tests = sum(r.get("successful", 0) for r in all_results.values())
 
-    logger.info(f"Regression test completed in {total_duration:.2f}s: {successful_tests}/{total_tests} tests passed")
+    logger.info(
+        f"Regression test completed in {total_duration:.2f}s: {successful_tests}/{total_tests} tests passed"
+    )
 
     return {
         "device_group": device_group,
@@ -230,6 +243,5 @@ async def regression_test_async(
         "failed_tests": total_tests - successful_tests,
         "total_duration_seconds": round(total_duration, 2),
         "max_concurrent": max_concurrent,
-        "results": all_results
+        "results": all_results,
     }
-

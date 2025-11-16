@@ -37,19 +37,15 @@ def get_device_groups() -> Dict[str, List[str]]:
         return {"error": f"Failed to get device groups: {e!s}"}
 
 
-def batch_operation(
-    device_ids: List[str],
-    operation: str,
-    **kwargs
-) -> Dict[str, Any]:
+def batch_operation(device_ids: List[str], operation: str, **kwargs) -> Dict[str, Any]:
     """
     Execute operation on multiple devices.
-    
+
     Args:
         device_ids: List of device identifiers
         operation: Operation to perform (test, ssh, ota_check, etc.)
         **kwargs: Operation-specific parameters
-        
+
     Returns:
         Results for each device
     """
@@ -59,20 +55,25 @@ def batch_operation(
         try:
             if operation == "test":
                 from lab_testing.tools.device_manager import test_device
+
                 results[device_id] = test_device(device_id)
             elif operation == "ssh":
                 from lab_testing.tools.device_manager import ssh_to_device
+
                 command = kwargs.get("command", "")
                 username = kwargs.get("username")
                 results[device_id] = ssh_to_device(device_id, command, username)
             elif operation == "ota_check":
                 from lab_testing.tools.ota_manager import check_ota_status
+
                 results[device_id] = check_ota_status(device_id)
             elif operation == "system_status":
                 from lab_testing.tools.ota_manager import get_system_status
+
                 results[device_id] = get_system_status(device_id)
             elif operation == "list_containers":
                 from lab_testing.tools.ota_manager import list_containers
+
                 results[device_id] = list_containers(device_id)
             else:
                 results[device_id] = {"error": f"Unknown operation: {operation}"}
@@ -88,23 +89,23 @@ def batch_operation(
         "total_devices": total_count,
         "successful": success_count,
         "failed": total_count - success_count,
-        "results": results
+        "results": results,
     }
 
 
 def regression_test(
     device_group: Optional[str] = None,
     device_ids: Optional[List[str]] = None,
-    test_sequence: Optional[List[str]] = None
+    test_sequence: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Run regression test sequence on multiple devices.
-    
+
     Args:
         device_group: Device group/tag to test (optional)
         device_ids: Specific device IDs to test (optional)
         test_sequence: List of test operations to run
-        
+
     Returns:
         Test results
     """
@@ -124,7 +125,7 @@ def regression_test(
         test_sequence = [
             "test",  # Connectivity test
             "system_status",  # System health
-            "ota_check"  # OTA status
+            "ota_check",  # OTA status
         ]
 
     # Run test sequence
@@ -135,9 +136,7 @@ def regression_test(
 
     # Overall summary
     total_tests = len(test_sequence) * len(target_devices)
-    successful_tests = sum(
-        r.get("successful", 0) for r in all_results.values()
-    )
+    successful_tests = sum(r.get("successful", 0) for r in all_results.values())
 
     return {
         "device_group": device_group,
@@ -146,6 +145,5 @@ def regression_test(
         "total_tests": total_tests,
         "successful_tests": successful_tests,
         "failed_tests": total_tests - successful_tests,
-        "results": all_results
+        "results": all_results,
     }
-

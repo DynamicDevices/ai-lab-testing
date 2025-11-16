@@ -10,4 +10,3 @@ __version__ = "0.1.0"
 
 # Version tuple for comparisons
 VERSION = tuple(map(int, __version__.split(".")))
-

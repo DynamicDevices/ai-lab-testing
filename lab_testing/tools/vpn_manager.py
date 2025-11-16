@@ -18,10 +18,7 @@ def get_vpn_status() -> Dict[str, Any]:
     try:
         # Check for active WireGuard interfaces
         result = subprocess.run(
-            ["wg", "show"],
-            check=False, capture_output=True,
-            text=True,
-            timeout=5
+            ["wg", "show"], check=False, capture_output=True, text=True, timeout=5
         )
 
         interfaces = []
@@ -31,17 +28,15 @@ def get_vpn_status() -> Dict[str, Any]:
             for line in result.stdout.split("\n"):
                 if line.startswith("interface:"):
                     current_interface = line.split(":")[1].strip()
-                    interfaces.append({
-                        "name": current_interface,
-                        "status": "active"
-                    })
+                    interfaces.append({"name": current_interface, "status": "active"})
 
         # Check NetworkManager connections
         nm_result = subprocess.run(
             ["nmcli", "-t", "-f", "NAME,TYPE,DEVICE,STATE", "connection", "show", "--active"],
-            check=False, capture_output=True,
+            check=False,
+            capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
         )
 
         nm_connections = []
@@ -50,12 +45,14 @@ def get_vpn_status() -> Dict[str, Any]:
                 if line and "wireguard" in line.lower():
                     parts = line.split(":")
                     if len(parts) >= 4:
-                        nm_connections.append({
-                            "name": parts[0],
-                            "type": parts[1],
-                            "device": parts[2],
-                            "state": parts[3]
-                        })
+                        nm_connections.append(
+                            {
+                                "name": parts[0],
+                                "type": parts[1],
+                                "device": parts[2],
+                                "state": parts[3],
+                            }
+                        )
 
         vpn_config = get_vpn_config()
 
@@ -64,19 +61,16 @@ def get_vpn_status() -> Dict[str, Any]:
             "wireguard_interfaces": interfaces,
             "networkmanager_connections": nm_connections,
             "config_file": str(vpn_config) if vpn_config else None,
-            "config_exists": vpn_config is not None and vpn_config.exists()
+            "config_exists": vpn_config is not None and vpn_config.exists(),
         }
 
     except FileNotFoundError:
         return {
             "connected": False,
-            "error": "WireGuard tools not found. Install wireguard-tools package."
+            "error": "WireGuard tools not found. Install wireguard-tools package.",
         }
     except Exception as e:
-        return {
-            "connected": False,
-            "error": f"Failed to check VPN status: {e!s}"
-        }
+        return {"connected": False, "error": f"Failed to check VPN status: {e!s}"}
 
 
 def get_vpn_statistics() -> Dict[str, Any]:
@@ -89,17 +83,11 @@ def get_vpn_statistics() -> Dict[str, Any]:
     try:
         # Get detailed statistics from wg show
         result = subprocess.run(
-            ["wg", "show", "all", "dump"],
-            check=False, capture_output=True,
-            text=True,
-            timeout=5
+            ["wg", "show", "all", "dump"], check=False, capture_output=True, text=True, timeout=5
         )
 
         if result.returncode != 0 or not result.stdout.strip():
-            return {
-                "connected": False,
-                "error": "No active WireGuard interfaces found"
-            }
+            return {"connected": False, "error": "No active WireGuard interfaces found"}
 
         interfaces = []
         current_interface = None
@@ -121,7 +109,7 @@ def get_vpn_statistics() -> Dict[str, Any]:
                         "interface": current_interface,
                         "public_key": parts[1] if len(parts) > 1 else None,
                         "listen_port": int(parts[2]) if len(parts) > 2 and parts[2] else None,
-                        "peers": []
+                        "peers": [],
                     }
                 elif len(parts) >= 8 and current_interface_data:
                     # Peer line: public_key\tpreshared_key\tendpoint\tallowed_ips\tlast_handshake\ttransfer_rx\ttransfer_tx\tpersistent_keepalive
@@ -136,10 +124,13 @@ def get_vpn_statistics() -> Dict[str, Any]:
                             try:
                                 last_handshake_seconds = int(parts[4])
                                 import time
+
                                 last_handshake = {
                                     "timestamp": last_handshake_seconds,
                                     "age_seconds": int(time.time()) - last_handshake_seconds,
-                                    "age_human": _format_duration(int(time.time()) - last_handshake_seconds)
+                                    "age_human": _format_duration(
+                                        int(time.time()) - last_handshake_seconds
+                                    ),
                                 }
                             except (ValueError, TypeError):
                                 pass
@@ -148,24 +139,34 @@ def get_vpn_statistics() -> Dict[str, Any]:
                         transfer_rx = int(parts[5]) if len(parts) > 5 and parts[5] else 0
                         transfer_tx = int(parts[6]) if len(parts) > 6 and parts[6] else 0
 
-                        persistent_keepalive = int(parts[7]) if len(parts) > 7 and parts[7] else None
+                        persistent_keepalive = (
+                            int(parts[7]) if len(parts) > 7 and parts[7] else None
+                        )
 
-                        current_interface_data["peers"].append({
-                            "public_key": peer_public_key[:16] + "..." if len(peer_public_key) > 16 else peer_public_key,
-                            "public_key_full": peer_public_key,
-                            "endpoint": endpoint,
-                            "allowed_ips": allowed_ips,
-                            "last_handshake": last_handshake,
-                            "transfer": {
-                                "rx_bytes": transfer_rx,
-                                "tx_bytes": transfer_tx,
-                                "rx_mb": round(transfer_rx / (1024 * 1024), 2),
-                                "tx_mb": round(transfer_tx / (1024 * 1024), 2),
-                                "total_bytes": transfer_rx + transfer_tx,
-                                "total_mb": round((transfer_rx + transfer_tx) / (1024 * 1024), 2)
-                            },
-                            "persistent_keepalive": persistent_keepalive
-                        })
+                        current_interface_data["peers"].append(
+                            {
+                                "public_key": (
+                                    peer_public_key[:16] + "..."
+                                    if len(peer_public_key) > 16
+                                    else peer_public_key
+                                ),
+                                "public_key_full": peer_public_key,
+                                "endpoint": endpoint,
+                                "allowed_ips": allowed_ips,
+                                "last_handshake": last_handshake,
+                                "transfer": {
+                                    "rx_bytes": transfer_rx,
+                                    "tx_bytes": transfer_tx,
+                                    "rx_mb": round(transfer_rx / (1024 * 1024), 2),
+                                    "tx_mb": round(transfer_tx / (1024 * 1024), 2),
+                                    "total_bytes": transfer_rx + transfer_tx,
+                                    "total_mb": round(
+                                        (transfer_rx + transfer_tx) / (1024 * 1024), 2
+                                    ),
+                                },
+                                "persistent_keepalive": persistent_keepalive,
+                            }
+                        )
                     except (ValueError, IndexError):
                         # Skip malformed peer lines
                         continue
@@ -174,8 +175,12 @@ def get_vpn_statistics() -> Dict[str, Any]:
             interfaces.append(current_interface_data)
 
         # Calculate totals
-        total_rx = sum(sum(p["transfer"]["rx_bytes"] for p in iface.get("peers", [])) for iface in interfaces)
-        total_tx = sum(sum(p["transfer"]["tx_bytes"] for p in iface.get("peers", [])) for iface in interfaces)
+        total_rx = sum(
+            sum(p["transfer"]["rx_bytes"] for p in iface.get("peers", [])) for iface in interfaces
+        )
+        total_tx = sum(
+            sum(p["transfer"]["tx_bytes"] for p in iface.get("peers", [])) for iface in interfaces
+        )
 
         return {
             "connected": len(interfaces) > 0,
@@ -185,20 +190,17 @@ def get_vpn_statistics() -> Dict[str, Any]:
                 "total_peers": sum(len(iface.get("peers", [])) for iface in interfaces),
                 "total_transfer_rx_mb": round(total_rx / (1024 * 1024), 2),
                 "total_transfer_tx_mb": round(total_tx / (1024 * 1024), 2),
-                "total_transfer_mb": round((total_rx + total_tx) / (1024 * 1024), 2)
-            }
+                "total_transfer_mb": round((total_rx + total_tx) / (1024 * 1024), 2),
+            },
         }
 
     except FileNotFoundError:
         return {
             "connected": False,
-            "error": "WireGuard tools not found. Install wireguard-tools package."
+            "error": "WireGuard tools not found. Install wireguard-tools package.",
         }
     except Exception as e:
-        return {
-            "connected": False,
-            "error": f"Failed to get VPN statistics: {e!s}"
-        }
+        return {"connected": False, "error": f"Failed to get VPN statistics: {e!s}"}
 
 
 def _format_duration(seconds: int) -> str:
@@ -218,9 +220,10 @@ def _find_networkmanager_connection() -> Optional[str]:
         # List all WireGuard connections
         result = subprocess.run(
             ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"],
-            check=False, capture_output=True,
+            check=False,
+            capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
         )
 
         if result.returncode == 0:
@@ -250,7 +253,7 @@ def connect_vpn() -> Dict[str, Any]:
     if not vpn_config or not vpn_config.exists():
         return {
             "success": False,
-            "error": "VPN configuration file not found. See docs/SETUP.md for setup instructions."
+            "error": "VPN configuration file not found. See docs/SETUP.md for setup instructions.",
         }
 
     try:
@@ -259,9 +262,10 @@ def connect_vpn() -> Dict[str, Any]:
         if nm_connection:
             nm_result = subprocess.run(
                 ["nmcli", "connection", "up", nm_connection],
-                check=False, capture_output=True,
+                check=False,
+                capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
 
             if nm_result.returncode == 0:
@@ -269,7 +273,7 @@ def connect_vpn() -> Dict[str, Any]:
                     "success": True,
                     "method": "networkmanager",
                     "connection": nm_connection,
-                    "message": f"VPN connected via NetworkManager: {nm_connection}"
+                    "message": f"VPN connected via NetworkManager: {nm_connection}",
                 }
 
         # Fallback: Try wg-quick (requires root)
@@ -278,9 +282,10 @@ def connect_vpn() -> Dict[str, Any]:
 
         wg_result = subprocess.run(
             ["sudo", "wg-quick", "up", str(vpn_config)],
-            check=False, capture_output=True,
+            check=False,
+            capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
 
         if wg_result.returncode == 0:
@@ -288,25 +293,19 @@ def connect_vpn() -> Dict[str, Any]:
                 "success": True,
                 "method": "wg-quick",
                 "interface": interface_name,
-                "message": f"VPN connected via wg-quick: {interface_name}"
+                "message": f"VPN connected via wg-quick: {interface_name}",
             }
         return {
             "success": False,
             "error": f"Failed to connect VPN: {wg_result.stderr}",
             "nm_error": nm_result.stderr if nm_connection else "No NetworkManager connection found",
-            "config_file": str(vpn_config)
+            "config_file": str(vpn_config),
         }
 
     except subprocess.TimeoutExpired:
-        return {
-            "success": False,
-            "error": "VPN connection attempt timed out"
-        }
+        return {"success": False, "error": "VPN connection attempt timed out"}
     except Exception as e:
-        return {
-            "success": False,
-            "error": f"VPN connection failed: {e!s}"
-        }
+        return {"success": False, "error": f"VPN connection failed: {e!s}"}
 
 
 def disconnect_vpn() -> Dict[str, Any]:
@@ -322,9 +321,10 @@ def disconnect_vpn() -> Dict[str, Any]:
         if nm_connection:
             nm_result = subprocess.run(
                 ["nmcli", "connection", "down", nm_connection],
-                check=False, capture_output=True,
+                check=False,
+                capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
 
             if nm_result.returncode == 0:
@@ -332,15 +332,12 @@ def disconnect_vpn() -> Dict[str, Any]:
                     "success": True,
                     "method": "networkmanager",
                     "connection": nm_connection,
-                    "message": f"VPN disconnected via NetworkManager: {nm_connection}"
+                    "message": f"VPN disconnected via NetworkManager: {nm_connection}",
                 }
 
         # Try to find and disconnect any WireGuard interfaces
         wg_result = subprocess.run(
-            ["wg", "show", "all", "dump"],
-            check=False, capture_output=True,
-            text=True,
-            timeout=5
+            ["wg", "show", "all", "dump"], check=False, capture_output=True, text=True, timeout=5
         )
 
         if wg_result.returncode == 0 and wg_result.stdout.strip():
@@ -350,9 +347,10 @@ def disconnect_vpn() -> Dict[str, Any]:
                 interface_name = first_line.split("\t")[0]
                 down_result = subprocess.run(
                     ["sudo", "wg-quick", "down", interface_name],
-                    check=False, capture_output=True,
+                    check=False,
+                    capture_output=True,
                     text=True,
-                    timeout=10
+                    timeout=10,
                 )
 
                 if down_result.returncode == 0:
@@ -360,17 +358,10 @@ def disconnect_vpn() -> Dict[str, Any]:
                         "success": True,
                         "method": "wg-quick",
                         "interface": interface_name,
-                        "message": f"VPN disconnected: {interface_name}"
+                        "message": f"VPN disconnected: {interface_name}",
                     }
 
-        return {
-            "success": True,
-            "message": "No active VPN connections found"
-        }
+        return {"success": True, "message": "No active VPN connections found"}
 
     except Exception as e:
-        return {
-            "success": False,
-            "error": f"Failed to disconnect VPN: {e!s}"
-        }
-
+        return {"success": False, "error": f"Failed to disconnect VPN: {e!s}"}

@@ -18,11 +18,7 @@ def get_all_tools() -> List[Tool]:
         Tool(
             name="list_devices",
             description="List all configured lab devices with their status",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
             name="test_device",
@@ -38,11 +34,11 @@ def get_all_tools() -> List[Tool]:
                 "properties": {
                     "device_id": {
                         "type": "string",
-                        "description": "Device identifier (device_id or friendly_name). Use 'list_devices' to see available options."
+                        "description": "Device identifier (device_id or friendly_name). Use 'list_devices' to see available options.",
                     }
                 },
-                "required": ["device_id"]
-            }
+                "required": ["device_id"],
+            },
         ),
         Tool(
             name="ssh_to_device",
@@ -59,73 +55,49 @@ def get_all_tools() -> List[Tool]:
                 "properties": {
                     "device_id": {
                         "type": "string",
-                        "description": "Device identifier (device_id or friendly_name). Use 'list_devices' to see available options."
+                        "description": "Device identifier (device_id or friendly_name). Use 'list_devices' to see available options.",
                     },
                     "command": {
                         "type": "string",
-                        "description": "Command to execute on the device (e.g., 'uptime', 'cat /etc/os-release')"
+                        "description": "Command to execute on the device (e.g., 'uptime', 'cat /etc/os-release')",
                     },
                     "username": {
                         "type": "string",
-                        "description": "SSH username (optional, uses device default from config)"
-                    }
+                        "description": "SSH username (optional, uses device default from config)",
+                    },
                 },
-                "required": ["device_id", "command"]
-            }
+                "required": ["device_id", "command"],
+            },
         ),
         Tool(
             name="vpn_status",
             description="Get current WireGuard VPN connection status",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
             name="connect_vpn",
             description="Connect to the WireGuard VPN for lab network access",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
             name="disconnect_vpn",
             description="Disconnect from the WireGuard VPN",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
             name="vpn_setup_instructions",
             description="Get WireGuard VPN setup instructions and check current configuration",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
             name="check_wireguard_installed",
             description="Check if WireGuard tools are installed on the system",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
             name="list_vpn_configs",
             description="List existing WireGuard configuration files",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
             name="create_vpn_config_template",
@@ -135,11 +107,11 @@ def get_all_tools() -> List[Tool]:
                 "properties": {
                     "output_path": {
                         "type": "string",
-                        "description": "Path where to save the template (optional, defaults to secrets directory)"
+                        "description": "Path where to save the template (optional, defaults to secrets directory)",
                     }
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         Tool(
             name="setup_networkmanager_vpn",
@@ -149,20 +121,16 @@ def get_all_tools() -> List[Tool]:
                 "properties": {
                     "config_path": {
                         "type": "string",
-                        "description": "Path to WireGuard .conf file (optional, uses detected config if not specified)"
+                        "description": "Path to WireGuard .conf file (optional, uses detected config if not specified)",
                     }
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         Tool(
             name="vpn_statistics",
             description="Get detailed WireGuard VPN statistics (transfer data, handshakes, latency)",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
             name="create_network_map",
@@ -173,26 +141,26 @@ def get_all_tools() -> List[Tool]:
                     "networks": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Network CIDRs to scan (e.g., ['192.168.1.0/24']). If not provided, uses networks from config"
+                        "description": "Network CIDRs to scan (e.g., ['192.168.1.0/24']). If not provided, uses networks from config",
                     },
                     "scan_networks": {
                         "type": "boolean",
                         "description": "If true, actively scan networks for hosts (default: true)",
-                        "default": True
+                        "default": True,
                     },
                     "test_configured_devices": {
                         "type": "boolean",
                         "description": "If true, test all configured devices (default: true)",
-                        "default": True
+                        "default": True,
                     },
                     "max_hosts_per_network": {
                         "type": "integer",
                         "description": "Maximum hosts to scan per network (default: 254)",
-                        "default": 254
-                    }
+                        "default": 254,
+                    },
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         Tool(
             name="verify_device_identity",
@@ -202,15 +170,15 @@ def get_all_tools() -> List[Tool]:
                 "properties": {
                     "device_id": {
                         "type": "string",
-                        "description": "Device identifier (device_id or friendly_name)"
+                        "description": "Device identifier (device_id or friendly_name)",
                     },
                     "ip": {
                         "type": "string",
-                        "description": "IP address to verify (optional, uses configured IP if not provided)"
-                    }
+                        "description": "IP address to verify (optional, uses configured IP if not provided)",
+                    },
                 },
-                "required": ["device_id"]
-            }
+                "required": ["device_id"],
+            },
         ),
         Tool(
             name="verify_device_by_ip",
@@ -218,23 +186,20 @@ def get_all_tools() -> List[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "ip": {
-                        "type": "string",
-                        "description": "IP address to check"
-                    },
+                    "ip": {"type": "string", "description": "IP address to check"},
                     "username": {
                         "type": "string",
                         "description": "SSH username (default: root)",
-                        "default": "root"
+                        "default": "root",
                     },
                     "ssh_port": {
                         "type": "integer",
                         "description": "SSH port (default: 22)",
-                        "default": 22
-                    }
+                        "default": 22,
+                    },
                 },
-                "required": ["ip"]
-            }
+                "required": ["ip"],
+            },
         ),
         Tool(
             name="update_device_ip",
@@ -244,15 +209,15 @@ def get_all_tools() -> List[Tool]:
                 "properties": {
                     "device_id": {
                         "type": "string",
-                        "description": "Device identifier (device_id or friendly_name)"
+                        "description": "Device identifier (device_id or friendly_name)",
                     },
                     "new_ip": {
                         "type": "string",
-                        "description": "New IP address to verify and potentially update"
-                    }
+                        "description": "New IP address to verify and potentially update",
+                    },
                 },
-                "required": ["device_id", "new_ip"]
-            }
+                "required": ["device_id", "new_ip"],
+            },
         ),
         Tool(
             name="start_power_monitoring",
@@ -262,24 +227,24 @@ def get_all_tools() -> List[Tool]:
                 "properties": {
                     "device_id": {
                         "type": "string",
-                        "description": "Device identifier - DMM (test_equipment) or Tasmota device (tasmota_device) with energy monitoring (optional)"
+                        "description": "Device identifier - DMM (test_equipment) or Tasmota device (tasmota_device) with energy monitoring (optional)",
                     },
                     "test_name": {
                         "type": "string",
-                        "description": "Name for this test session (optional)"
+                        "description": "Name for this test session (optional)",
                     },
                     "duration": {
                         "type": "integer",
-                        "description": "Monitoring duration in seconds (optional)"
+                        "description": "Monitoring duration in seconds (optional)",
                     },
                     "monitor_type": {
                         "type": "string",
                         "enum": ["dmm", "tasmota"],
-                        "description": "Type of monitor to use - 'dmm' (default) or 'tasmota'. Auto-detected from device type if not specified"
-                    }
+                        "description": "Type of monitor to use - 'dmm' (default) or 'tasmota'. Auto-detected from device type if not specified",
+                    },
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         Tool(
             name="get_power_logs",
@@ -289,16 +254,16 @@ def get_all_tools() -> List[Tool]:
                 "properties": {
                     "test_name": {
                         "type": "string",
-                        "description": "Filter by test name (optional)"
+                        "description": "Filter by test name (optional)",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of log files to return",
-                        "default": 10
-                    }
+                        "default": 10,
+                    },
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         Tool(
             name="tasmota_control",
@@ -306,27 +271,20 @@ def get_all_tools() -> List[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "device_id": {
-                        "type": "string",
-                        "description": "Tasmota device identifier"
-                    },
+                    "device_id": {"type": "string", "description": "Tasmota device identifier"},
                     "action": {
                         "type": "string",
                         "enum": ["on", "off", "toggle", "status", "energy"],
-                        "description": "Action to perform"
-                    }
+                        "description": "Action to perform",
+                    },
                 },
-                "required": ["device_id", "action"]
-            }
+                "required": ["device_id", "action"],
+            },
         ),
         Tool(
             name="list_tasmota_devices",
             description="List all configured Tasmota devices and the devices they control",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
             name="power_cycle_device",
@@ -336,16 +294,16 @@ def get_all_tools() -> List[Tool]:
                 "properties": {
                     "device_id": {
                         "type": "string",
-                        "description": "Device identifier (device_id or friendly_name) to power cycle"
+                        "description": "Device identifier (device_id or friendly_name) to power cycle",
                     },
                     "off_duration": {
                         "type": "integer",
                         "description": "Duration in seconds to keep power off (default: 5)",
-                        "default": 5
-                    }
+                        "default": 5,
+                    },
                 },
-                "required": ["device_id"]
-            }
+                "required": ["device_id"],
+            },
         ),
         Tool(
             name="help",
@@ -356,25 +314,27 @@ def get_all_tools() -> List[Tool]:
                     "topic": {
                         "type": "string",
                         "description": "Specific topic (tools, resources, workflows, troubleshooting) or 'all' for complete help",
-                        "enum": ["all", "tools", "resources", "workflows", "troubleshooting", "examples"]
+                        "enum": [
+                            "all",
+                            "tools",
+                            "resources",
+                            "workflows",
+                            "troubleshooting",
+                            "examples",
+                        ],
                     }
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         Tool(
             name="check_ota_status",
             description="Check Foundries.io OTA update status for a device",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "device_id": {
-                        "type": "string",
-                        "description": "Device identifier"
-                    }
-                },
-                "required": ["device_id"]
-            }
+                "properties": {"device_id": {"type": "string", "description": "Device identifier"}},
+                "required": ["device_id"],
+            },
         ),
         Tool(
             name="trigger_ota_update",
@@ -382,31 +342,23 @@ def get_all_tools() -> List[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "device_id": {
-                        "type": "string",
-                        "description": "Device identifier"
-                    },
+                    "device_id": {"type": "string", "description": "Device identifier"},
                     "target": {
                         "type": "string",
-                        "description": "Target to update to (optional, uses device default)"
-                    }
+                        "description": "Target to update to (optional, uses device default)",
+                    },
                 },
-                "required": ["device_id"]
-            }
+                "required": ["device_id"],
+            },
         ),
         Tool(
             name="list_containers",
             description="List Docker containers on a device",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "device_id": {
-                        "type": "string",
-                        "description": "Device identifier"
-                    }
-                },
-                "required": ["device_id"]
-            }
+                "properties": {"device_id": {"type": "string", "description": "Device identifier"}},
+                "required": ["device_id"],
+            },
         ),
         Tool(
             name="deploy_container",
@@ -414,49 +366,30 @@ def get_all_tools() -> List[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "device_id": {
-                        "type": "string",
-                        "description": "Device identifier"
-                    },
-                    "container_name": {
-                        "type": "string",
-                        "description": "Container name"
-                    },
-                    "image": {
-                        "type": "string",
-                        "description": "Container image to deploy"
-                    }
+                    "device_id": {"type": "string", "description": "Device identifier"},
+                    "container_name": {"type": "string", "description": "Container name"},
+                    "image": {"type": "string", "description": "Container image to deploy"},
                 },
-                "required": ["device_id", "container_name", "image"]
-            }
+                "required": ["device_id", "container_name", "image"],
+            },
         ),
         Tool(
             name="get_system_status",
             description="Get comprehensive system status (uptime, load, memory, disk, kernel)",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "device_id": {
-                        "type": "string",
-                        "description": "Device identifier"
-                    }
-                },
-                "required": ["device_id"]
-            }
+                "properties": {"device_id": {"type": "string", "description": "Device identifier"}},
+                "required": ["device_id"],
+            },
         ),
         Tool(
             name="get_firmware_version",
             description="Get firmware/OS version information from /etc/os-release",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "device_id": {
-                        "type": "string",
-                        "description": "Device identifier"
-                    }
-                },
-                "required": ["device_id"]
-            }
+                "properties": {"device_id": {"type": "string", "description": "Device identifier"}},
+                "required": ["device_id"],
+            },
         ),
         Tool(
             name="batch_operation",
@@ -467,29 +400,26 @@ def get_all_tools() -> List[Tool]:
                     "device_ids": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of device identifiers"
+                        "description": "List of device identifiers",
                     },
                     "operation": {
                         "type": "string",
                         "enum": ["test", "ssh", "ota_check", "system_status", "list_containers"],
-                        "description": "Operation to perform"
+                        "description": "Operation to perform",
                     },
                     "max_concurrent": {
                         "type": "integer",
                         "description": "Maximum concurrent operations (default: 5)",
-                        "default": 5
+                        "default": 5,
                     },
                     "command": {
                         "type": "string",
-                        "description": "Command for SSH operation (required if operation=ssh)"
+                        "description": "Command for SSH operation (required if operation=ssh)",
                     },
-                    "username": {
-                        "type": "string",
-                        "description": "SSH username (optional)"
-                    }
+                    "username": {"type": "string", "description": "SSH username (optional)"},
                 },
-                "required": ["device_ids", "operation"]
-            }
+                "required": ["device_ids", "operation"],
+            },
         ),
         Tool(
             name="regression_test",
@@ -499,35 +429,31 @@ def get_all_tools() -> List[Tool]:
                 "properties": {
                     "device_group": {
                         "type": "string",
-                        "description": "Device group/tag to test (optional)"
+                        "description": "Device group/tag to test (optional)",
                     },
                     "device_ids": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Specific device IDs to test (optional)"
+                        "description": "Specific device IDs to test (optional)",
                     },
                     "test_sequence": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of test operations (default: test, system_status, ota_check)"
+                        "description": "List of test operations (default: test, system_status, ota_check)",
                     },
                     "max_concurrent": {
                         "type": "integer",
                         "description": "Maximum concurrent operations per test (default: 5)",
-                        "default": 5
-                    }
+                        "default": 5,
+                    },
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         Tool(
             name="get_device_groups",
             description="Get devices organized by groups/tags (for rack management)",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
             name="analyze_power_logs",
@@ -537,19 +463,16 @@ def get_all_tools() -> List[Tool]:
                 "properties": {
                     "test_name": {
                         "type": "string",
-                        "description": "Filter by test name (optional)"
+                        "description": "Filter by test name (optional)",
                     },
-                    "device_id": {
-                        "type": "string",
-                        "description": "Filter by device (optional)"
-                    },
+                    "device_id": {"type": "string", "description": "Filter by device (optional)"},
                     "threshold_mw": {
                         "type": "number",
-                        "description": "Power threshold in mW for low power detection (optional)"
-                    }
+                        "description": "Power threshold in mW for low power detection (optional)",
+                    },
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         Tool(
             name="monitor_low_power",
@@ -557,28 +480,25 @@ def get_all_tools() -> List[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "device_id": {
-                        "type": "string",
-                        "description": "Device identifier"
-                    },
+                    "device_id": {"type": "string", "description": "Device identifier"},
                     "duration": {
                         "type": "integer",
                         "description": "Monitoring duration in seconds",
-                        "default": 300
+                        "default": 300,
                     },
                     "threshold_mw": {
                         "type": "number",
                         "description": "Low power threshold in mW",
-                        "default": 100.0
+                        "default": 100.0,
                     },
                     "sample_rate": {
                         "type": "number",
                         "description": "Sampling rate in Hz",
-                        "default": 1.0
-                    }
+                        "default": 1.0,
+                    },
                 },
-                "required": ["device_id"]
-            }
+                "required": ["device_id"],
+            },
         ),
         Tool(
             name="compare_power_profiles",
@@ -589,15 +509,11 @@ def get_all_tools() -> List[Tool]:
                     "test_names": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of test names to compare"
+                        "description": "List of test names to compare",
                     },
-                    "device_id": {
-                        "type": "string",
-                        "description": "Optional device filter"
-                    }
+                    "device_id": {"type": "string", "description": "Optional device filter"},
                 },
-                "required": ["test_names"]
-            }
+                "required": ["test_names"],
+            },
         ),
     ]
-

@@ -54,11 +54,11 @@ def save_credentials(credentials: Dict[str, Dict[str, str]]):
 def get_credential(device_id: str, credential_type: str = "ssh") -> Optional[Dict[str, str]]:
     """
     Get cached credential for a device.
-    
+
     Args:
         device_id: Device identifier
         credential_type: Type of credential (ssh, sudo, etc.)
-        
+
     Returns:
         Credential dict with username/password or None
     """
@@ -67,10 +67,12 @@ def get_credential(device_id: str, credential_type: str = "ssh") -> Optional[Dic
     return credentials.get(key)
 
 
-def cache_credential(device_id: str, username: str, password: Optional[str] = None, credential_type: str = "ssh"):
+def cache_credential(
+    device_id: str, username: str, password: Optional[str] = None, credential_type: str = "ssh"
+):
     """
     Cache credential for a device (stored in user's home, not in repo).
-    
+
     Args:
         device_id: Device identifier
         username: Username
@@ -81,7 +83,7 @@ def cache_credential(device_id: str, username: str, password: Optional[str] = No
     key = f"{device_id}:{credential_type}"
     credentials[key] = {
         "username": username,
-        "password": password  # Only if needed, prefer SSH keys
+        "password": password,  # Only if needed, prefer SSH keys
     }
     save_credentials(credentials)
 
@@ -89,21 +91,30 @@ def cache_credential(device_id: str, username: str, password: Optional[str] = No
 def check_ssh_key_installed(device_ip: str, username: str) -> bool:
     """
     Check if SSH key is already installed on target device.
-    
+
     Args:
         device_ip: Device IP address
         username: SSH username
-        
+
     Returns:
         True if key-based auth works
     """
     try:
         result = subprocess.run(
-            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
-             "-o", "StrictHostKeyChecking=no",
-             f"{username}@{device_ip}", "echo OK"],
-            check=False, capture_output=True,
-            timeout=10
+            [
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=5",
+                "-o",
+                "StrictHostKeyChecking=no",
+                f"{username}@{device_ip}",
+                "echo OK",
+            ],
+            check=False,
+            capture_output=True,
+            timeout=10,
         )
         return result.returncode == 0
     except Exception:
@@ -114,12 +125,12 @@ def install_ssh_key(device_ip: str, username: str, password: Optional[str] = Non
     """
     Install SSH public key on target device.
     Prefer this over password authentication.
-    
+
     Args:
         device_ip: Device IP address
         username: SSH username
         password: Password for initial access (if key not installed)
-        
+
     Returns:
         True if key was installed successfully
     """
@@ -145,17 +156,23 @@ def install_ssh_key(device_ip: str, username: str, password: Optional[str] = Non
     # Install key using sshpass if password provided, otherwise prompt
     if password:
         cmd = [
-            "sshpass", "-p", password,
-            "ssh", "-o", "StrictHostKeyChecking=no",
+            "sshpass",
+            "-p",
+            password,
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
             f"{username}@{device_ip}",
-            f"mkdir -p ~/.ssh && echo '{public_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+            f"mkdir -p ~/.ssh && echo '{public_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys",
         ]
     else:
         # Try without password (key might already be partially installed)
         cmd = [
-            "ssh", "-o", "StrictHostKeyChecking=no",
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
             f"{username}@{device_ip}",
-            f"mkdir -p ~/.ssh && echo '{public_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+            f"mkdir -p ~/.ssh && echo '{public_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys",
         ]
 
     try:
@@ -172,12 +189,12 @@ def install_ssh_key(device_ip: str, username: str, password: Optional[str] = Non
 def enable_passwordless_sudo(device_ip: str, username: str, password: Optional[str] = None) -> bool:
     """
     Enable passwordless sudo on target device for debugging.
-    
+
     Args:
         device_ip: Device IP address
         username: SSH username
         password: Sudo password (if needed for initial setup)
-        
+
     Returns:
         True if passwordless sudo was enabled
     """
@@ -185,9 +202,13 @@ def enable_passwordless_sudo(device_ip: str, username: str, password: Optional[s
 
     # Check if already configured
     check_cmd = [
-        "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=5",
         f"{username}@{device_ip}",
-        f"sudo grep -q '{sudo_config}' /etc/sudoers.d/{username} 2>/dev/null && echo OK"
+        f"sudo grep -q '{sudo_config}' /etc/sudoers.d/{username} 2>/dev/null && echo OK",
     ]
 
     try:
@@ -203,23 +224,31 @@ def enable_passwordless_sudo(device_ip: str, username: str, password: Optional[s
         try:
             subprocess.run(["which", "sshpass"], capture_output=True, check=True)
             cmd = [
-                "sshpass", "-p", password,
-                "ssh", "-o", "StrictHostKeyChecking=no",
+                "sshpass",
+                "-p",
+                password,
+                "ssh",
+                "-o",
+                "StrictHostKeyChecking=no",
                 f"{username}@{device_ip}",
-                f"echo '{sudo_config}' | sudo tee /etc/sudoers.d/{username} && sudo chmod 440 /etc/sudoers.d/{username}"
+                f"echo '{sudo_config}' | sudo tee /etc/sudoers.d/{username} && sudo chmod 440 /etc/sudoers.d/{username}",
             ]
         except (subprocess.CalledProcessError, FileNotFoundError):
             # sshpass not available, try interactive
             cmd = [
-                "ssh", "-o", "StrictHostKeyChecking=no",
+                "ssh",
+                "-o",
+                "StrictHostKeyChecking=no",
                 f"{username}@{device_ip}",
-                f"echo '{sudo_config}' | sudo tee /etc/sudoers.d/{username} && sudo chmod 440 /etc/sudoers.d/{username}"
+                f"echo '{sudo_config}' | sudo tee /etc/sudoers.d/{username} && sudo chmod 440 /etc/sudoers.d/{username}",
             ]
     else:
         cmd = [
-            "ssh", "-o", "StrictHostKeyChecking=no",
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
             f"{username}@{device_ip}",
-            f"echo '{sudo_config}' | sudo tee /etc/sudoers.d/{username} && sudo chmod 440 /etc/sudoers.d/{username}"
+            f"echo '{sudo_config}' | sudo tee /etc/sudoers.d/{username} && sudo chmod 440 /etc/sudoers.d/{username}",
         ]
 
     try:
@@ -229,29 +258,39 @@ def enable_passwordless_sudo(device_ip: str, username: str, password: Optional[s
         return False
 
 
-def get_ssh_command(device_ip: str, username: str, command: str,
-                   device_id: Optional[str] = None, use_password: bool = False) -> list:
+def get_ssh_command(
+    device_ip: str,
+    username: str,
+    command: str,
+    device_id: Optional[str] = None,
+    use_password: bool = False,
+) -> list:
     """
     Build SSH command with appropriate authentication method.
     Prefers SSH keys, falls back to sshpass if needed.
-    
+
     Args:
         device_ip: Device IP address
         username: SSH username
         command: Command to execute
         device_id: Device ID for credential lookup
         use_password: Force password authentication (if key fails)
-        
+
     Returns:
         Command list for subprocess
     """
     # Try key-based auth first
     if not use_password and check_ssh_key_installed(device_ip, username):
         return [
-            "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
-            "-o", "StrictHostKeyChecking=no",
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=10",
+            "-o",
+            "StrictHostKeyChecking=no",
             f"{username}@{device_ip}",
-            command
+            command,
         ]
 
     # Fall back to password if needed
@@ -259,18 +298,25 @@ def get_ssh_command(device_ip: str, username: str, command: str,
         cred = get_credential(device_id, "ssh")
         if cred and cred.get("password"):
             return [
-                "sshpass", "-p", cred["password"],
-                "ssh", "-o", "StrictHostKeyChecking=no",
-                "-o", "ConnectTimeout=10",
+                "sshpass",
+                "-p",
+                cred["password"],
+                "ssh",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "ConnectTimeout=10",
                 f"{username}@{device_ip}",
-                command
+                command,
             ]
 
     # Default: try key-based (may prompt for password)
     return [
-        "ssh", "-o", "ConnectTimeout=10",
-        "-o", "StrictHostKeyChecking=no",
+        "ssh",
+        "-o",
+        "ConnectTimeout=10",
+        "-o",
+        "StrictHostKeyChecking=no",
         f"{username}@{device_ip}",
-        command
+        command,
     ]
-

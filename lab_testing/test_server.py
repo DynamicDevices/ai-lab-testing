@@ -22,17 +22,20 @@ def test_imports():
         from lab_testing.tools.power_monitor import get_power_logs
         from lab_testing.tools.tasmota_control import list_tasmota_devices
         from lab_testing.tools.vpn_manager import get_vpn_status
+
         logger.info("✓ All imports successful")
         return True
     except ImportError as e:
         logger.error(f"✗ Import failed: {e}")
         return False
 
+
 def test_config():
     """Test configuration validation"""
     print("\nTesting configuration...")
     try:
         from lab_testing.config import get_lab_devices_config, validate_config
+
         is_valid, errors = validate_config()
         if is_valid:
             print("✓ Configuration valid")
@@ -46,6 +49,7 @@ def test_config():
         print(f"✗ Configuration test failed: {e}")
         return False
 
+
 def test_tools():
     """Test tool functions"""
     logger.info("\nTesting tools...")
@@ -53,6 +57,7 @@ def test_tools():
     # Test list_devices
     try:
         from lab_testing.tools.device_manager import list_devices
+
         result = list_devices()
         logger.info(f"✓ list_devices: Found {result.get('total_devices', 0)} devices")
         logger.info(f"  Summary: {result.get('summary', 'N/A')}")
@@ -63,6 +68,7 @@ def test_tools():
     # Test VPN status
     try:
         from lab_testing.tools.vpn_manager import get_vpn_status
+
         result = get_vpn_status()
         connected = result.get("connected", False)
         logger.info(f"✓ vpn_status: VPN {'connected' if connected else 'disconnected'}")
@@ -73,6 +79,7 @@ def test_tools():
     # Test Tasmota list
     try:
         from lab_testing.tools.tasmota_control import list_tasmota_devices
+
         result = list_tasmota_devices()
         if result.get("success"):
             count = result.get("count", 0)
@@ -85,12 +92,14 @@ def test_tools():
 
     return True
 
+
 def test_resources():
     """Test resource providers"""
     print("\nTesting resources...")
 
     try:
         from lab_testing.resources.device_inventory import get_device_inventory
+
         inventory = get_device_inventory()
         if "error" in inventory:
             print(f"⚠ device_inventory: {inventory['error']}")
@@ -103,6 +112,7 @@ def test_resources():
 
     try:
         from lab_testing.resources.network_status import get_network_status
+
         status = get_network_status()
         print("✓ network_status: Status retrieved")
     except Exception as e:
@@ -110,6 +120,7 @@ def test_resources():
         return False
 
     return True
+
 
 def test_mcp_sdk():
     """Test MCP SDK availability"""
@@ -119,6 +130,7 @@ def test_mcp_sdk():
         from mcp.server import Server
         from mcp.server.stdio import stdio_server
         from mcp.types import EmbeddedResource, TextContent, Tool
+
         print("✓ MCP SDK imports successful (standard structure)")
         return True
     except ImportError:
@@ -126,12 +138,16 @@ def test_mcp_sdk():
             from mcp import Server
             from mcp.stdio import stdio_server
             from mcp.types import EmbeddedResource, TextContent, Tool
+
             print("✓ MCP SDK imports successful (alternative structure)")
             return True
         except ImportError:
             print("⚠ MCP SDK not found (expected if not installed)")
-            print("  Install with: pip3 install git+https://github.com/modelcontextprotocol/python-sdk.git")
+            print(
+                "  Install with: pip3 install git+https://github.com/modelcontextprotocol/python-sdk.git"
+            )
             return True  # Don't fail test if SDK not installed
+
 
 def main():
     """Run all tests"""
@@ -165,6 +181,6 @@ def main():
     print("Some tests failed. Please fix issues before integrating.")
     return 1
 
+
 if __name__ == "__main__":
     sys.exit(main())
-

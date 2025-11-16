@@ -24,17 +24,17 @@ def create_ssh_tunnel(
     device_id: str,
     local_port: Optional[int] = None,
     remote_port: int = 22,
-    tunnel_type: str = "local"
+    tunnel_type: str = "local",
 ) -> Dict[str, Any]:
     """
     Create an SSH tunnel to a device through VPN.
-    
+
     Args:
         device_id: Device identifier
         local_port: Local port to bind (auto-assigned if None)
         remote_port: Remote SSH port (default: 22)
         tunnel_type: "local" (forward local port) or "remote" (reverse tunnel)
-        
+
     Returns:
         Tunnel information
     """
@@ -52,6 +52,7 @@ def create_ssh_tunnel(
     if local_port is None:
         # Find an available port (simple approach: use a high port)
         import socket
+
         sock = socket.socket()
         sock.bind(("", 0))
         local_port = sock.getsockname()[1]
@@ -61,20 +62,30 @@ def create_ssh_tunnel(
         if tunnel_type == "local":
             # Local port forwarding: -L local_port:remote_host:remote_port
             ssh_cmd = [
-                "ssh", "-N", "-f",  # -N: no command, -f: background
-                "-L", f"{local_port}:{ip}:{remote_port}",
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "ServerAliveInterval=60",
-                f"{username}@{ip}"
+                "ssh",
+                "-N",
+                "-f",  # -N: no command, -f: background
+                "-L",
+                f"{local_port}:{ip}:{remote_port}",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "ServerAliveInterval=60",
+                f"{username}@{ip}",
             ]
         else:
             # Remote port forwarding: -R remote_port:local_host:local_port
             ssh_cmd = [
-                "ssh", "-N", "-f",
-                "-R", f"{remote_port}:localhost:{local_port}",
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "ServerAliveInterval=60",
-                f"{username}@{ip}"
+                "ssh",
+                "-N",
+                "-f",
+                "-R",
+                f"{remote_port}:localhost:{local_port}",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "ServerAliveInterval=60",
+                f"{username}@{ip}",
             ]
 
         # Use credential helper for SSH command
@@ -83,15 +94,12 @@ def create_ssh_tunnel(
         ssh_cmd = ssh_cmd[:-1]  # Remove empty command
         ssh_cmd.extend(["-N", "-f", "-L", f"{local_port}:{ip}:{remote_port}"])
 
-        result = subprocess.run(
-            ssh_cmd,
-            check=False, capture_output=True,
-            text=True,
-            timeout=10
-        )
+        result = subprocess.run(ssh_cmd, check=False, capture_output=True, text=True, timeout=10)
 
         if result.returncode == 0:
-            logger.info(f"SSH tunnel created for {device_id}: localhost:{local_port} -> {ip}:{remote_port}")
+            logger.info(
+                f"SSH tunnel created for {device_id}: localhost:{local_port} -> {ip}:{remote_port}"
+            )
             return {
                 "success": True,
                 "device_id": device_id,
@@ -100,7 +108,7 @@ def create_ssh_tunnel(
                 "remote_host": ip,
                 "remote_port": remote_port,
                 "connection_string": f"ssh -p {local_port} {username}@localhost",
-                "message": f"Tunnel active. Connect with: ssh -p {local_port} {username}@localhost"
+                "message": f"Tunnel active. Connect with: ssh -p {local_port} {username}@localhost",
             }
         error_msg = f"Failed to create SSH tunnel: {result.stderr}"
         logger.error(error_msg)
@@ -118,10 +126,7 @@ def list_ssh_tunnels() -> Dict[str, Any]:
     try:
         # Find SSH processes with -L or -R options
         result = subprocess.run(
-            ["ps", "aux"],
-            check=False, capture_output=True,
-            text=True,
-            timeout=5
+            ["ps", "aux"], check=False, capture_output=True, text=True, timeout=5
         )
 
         tunnels = []
@@ -129,20 +134,18 @@ def list_ssh_tunnels() -> Dict[str, Any]:
             if "ssh" in line and ("-L" in line or "-R" in line):
                 tunnels.append(line.strip())
 
-        return {
-            "success": True,
-            "tunnel_count": len(tunnels),
-            "tunnels": tunnels
-        }
+        return {"success": True, "tunnel_count": len(tunnels), "tunnels": tunnels}
     except Exception as e:
         logger.error(f"Failed to list SSH tunnels: {e}")
         return {"error": f"Failed to list tunnels: {e!s}"}
 
 
-def close_ssh_tunnel(local_port: Optional[int] = None, device_id: Optional[str] = None) -> Dict[str, Any]:
+def close_ssh_tunnel(
+    local_port: Optional[int] = None, device_id: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Close an SSH tunnel.
-    
+
     Args:
         local_port: Local port of tunnel to close
         device_id: Device ID (alternative to local_port)
@@ -154,10 +157,7 @@ def close_ssh_tunnel(local_port: Optional[int] = None, device_id: Optional[str] 
                 ip = device_info.get("ip")
                 # Find tunnel by device IP
                 result = subprocess.run(
-                    ["ps", "aux"],
-                    check=False, capture_output=True,
-                    text=True,
-                    timeout=5
+                    ["ps", "aux"], check=False, capture_output=True, text=True, timeout=5
                 )
                 for line in result.stdout.split("\n"):
                     if "ssh" in line and ip in line and ("-L" in line or "-R" in line):
@@ -173,9 +173,10 @@ def close_ssh_tunnel(local_port: Optional[int] = None, device_id: Optional[str] 
             # Find tunnel by local port
             result = subprocess.run(
                 ["lsof", "-ti", f":{local_port}"],
-                check=False, capture_output=True,
+                check=False,
+                capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
             )
             if result.returncode == 0 and result.stdout.strip():
                 pid = int(result.stdout.strip())
@@ -194,42 +195,47 @@ def access_serial_port(
     remote_laptop_id: str,
     serial_device: str = "/dev/ttyACM0",
     baud_rate: int = 115200,
-    duration: Optional[int] = None
+    duration: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Access serial port on a remote Linux laptop via SSH.
-    
+
     Useful for:
     - Low power operation with WiFi disabled
     - Bootup problems
     - Direct serial logging
-    
+
     Args:
         remote_laptop_id: Device ID of the remote Linux laptop
         serial_device: Serial device path (e.g., /dev/ttyACM0, /dev/ttyUSB0)
         baud_rate: Baud rate (default: 115200)
         duration: Duration in seconds (None = continuous)
-        
+
     Returns:
         Connection information
     """
     device_info = get_device_info(remote_laptop_id)
     if not device_info:
-        raise DeviceNotFoundError(f"Remote laptop {remote_laptop_id} not found", device_id=remote_laptop_id)
+        raise DeviceNotFoundError(
+            f"Remote laptop {remote_laptop_id} not found", device_id=remote_laptop_id
+        )
 
     ip = device_info.get("ip")
     username = device_info.get("ssh_user", "root")
 
     if not ip:
-        raise DeviceConnectionError(f"Remote laptop {remote_laptop_id} has no IP address", device_id=remote_laptop_id)
+        raise DeviceConnectionError(
+            f"Remote laptop {remote_laptop_id} has no IP address", device_id=remote_laptop_id
+        )
 
     # Check if serial device exists on remote laptop
     check_cmd = f"test -c {serial_device} && echo 'EXISTS' || echo 'NOT_FOUND'"
     result = subprocess.run(
         get_ssh_command(ip, username, check_cmd, remote_laptop_id, use_password=False),
-        check=False, capture_output=True,
+        check=False,
+        capture_output=True,
         text=True,
-        timeout=10
+        timeout=10,
     )
 
     if "NOT_FOUND" in result.stdout:
@@ -237,16 +243,17 @@ def access_serial_port(
         list_cmd = "ls -la /dev/tty{ACM,USB}* 2>/dev/null || echo 'NONE'"
         list_result = subprocess.run(
             get_ssh_command(ip, username, list_cmd, remote_laptop_id, use_password=False),
-            check=False, capture_output=True,
+            check=False,
+            capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
         available = list_result.stdout.strip() if list_result.returncode == 0 else "Unknown"
 
         return {
             "error": f"Serial device {serial_device} not found on {remote_laptop_id}",
             "available_devices": available,
-            "suggestion": "Use list_serial_devices to find available devices"
+            "suggestion": "Use list_serial_devices to find available devices",
         }
 
     # Create SSH command to access serial port
@@ -257,8 +264,9 @@ def access_serial_port(
     # Try screen first (more common)
     test_screen = subprocess.run(
         get_ssh_command(ip, username, "which screen", remote_laptop_id, use_password=False),
-        check=False, capture_output=True,
-        timeout=5
+        check=False,
+        capture_output=True,
+        timeout=5,
     )
 
     if test_screen.returncode == 0:
@@ -268,8 +276,9 @@ def access_serial_port(
         # Fallback to minicom
         test_minicom = subprocess.run(
             get_ssh_command(ip, username, "which minicom", remote_laptop_id, use_password=False),
-            check=False, capture_output=True,
-            timeout=5
+            check=False,
+            capture_output=True,
+            timeout=5,
         )
         if test_minicom.returncode == 0:
             command = minicom_cmd
@@ -277,7 +286,7 @@ def access_serial_port(
         else:
             return {
                 "error": "Neither screen nor minicom available on remote laptop",
-                "suggestion": "Install screen or minicom on the remote laptop"
+                "suggestion": "Install screen or minicom on the remote laptop",
             }
 
     # Create interactive SSH session command
@@ -297,29 +306,33 @@ def access_serial_port(
         "command": " ".join(ssh_cmd),
         "connection_instructions": f"Run: {' '.join(ssh_cmd)}",
         "note": "This is an interactive session. Use Ctrl+A then K to exit screen, or Ctrl+A then X for minicom.",
-        "duration": duration
+        "duration": duration,
     }
 
 
 def list_serial_devices(remote_laptop_id: str) -> Dict[str, Any]:
     """
     List available serial devices on a remote Linux laptop.
-    
+
     Args:
         remote_laptop_id: Device ID of the remote Linux laptop
-        
+
     Returns:
         List of available serial devices
     """
     device_info = get_device_info(remote_laptop_id)
     if not device_info:
-        raise DeviceNotFoundError(f"Remote laptop {remote_laptop_id} not found", device_id=remote_laptop_id)
+        raise DeviceNotFoundError(
+            f"Remote laptop {remote_laptop_id} not found", device_id=remote_laptop_id
+        )
 
     ip = device_info.get("ip")
     username = device_info.get("ssh_user", "root")
 
     if not ip:
-        raise DeviceConnectionError(f"Remote laptop {remote_laptop_id} has no IP address", device_id=remote_laptop_id)
+        raise DeviceConnectionError(
+            f"Remote laptop {remote_laptop_id} has no IP address", device_id=remote_laptop_id
+        )
 
     # List USB CDC and USB serial devices
     list_cmd = "ls -la /dev/tty{ACM,USB}* 2>/dev/null | awk '{print $10, $5, $6}' || echo 'NONE'"
@@ -327,9 +340,10 @@ def list_serial_devices(remote_laptop_id: str) -> Dict[str, Any]:
     try:
         result = subprocess.run(
             get_ssh_command(ip, username, list_cmd, remote_laptop_id, use_password=False),
-            check=False, capture_output=True,
+            check=False,
+            capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
 
         devices = []
@@ -338,17 +352,19 @@ def list_serial_devices(remote_laptop_id: str) -> Dict[str, Any]:
                 if line.strip() and "/dev/" in line:
                     parts = line.split()
                     if len(parts) >= 1:
-                        devices.append({
-                            "device": parts[0],
-                            "major": parts[1] if len(parts) > 1 else "unknown",
-                            "minor": parts[2] if len(parts) > 2 else "unknown"
-                        })
+                        devices.append(
+                            {
+                                "device": parts[0],
+                                "major": parts[1] if len(parts) > 1 else "unknown",
+                                "minor": parts[2] if len(parts) > 2 else "unknown",
+                            }
+                        )
 
         return {
             "success": True,
             "remote_laptop_id": remote_laptop_id,
             "devices": devices,
-            "count": len(devices)
+            "count": len(devices),
         }
 
     except Exception as e:
@@ -363,4 +379,3 @@ from lab_testing.tools.device_manager import get_device_info as _get_device_info
 def get_device_info(device_id: str) -> Optional[Dict[str, Any]]:
     """Get device information from config (wrapper)"""
     return _get_device_info(device_id)
-

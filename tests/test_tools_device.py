@@ -25,7 +25,10 @@ class TestListDevices:
     def test_list_devices_success(self, mock_load_config, sample_device_config):
         """Test successful device listing"""
         with open(sample_device_config) as f:
-            mock_load_config.return_value = {"devices": json.load(f)["devices"], "lab_infrastructure": {}}
+            mock_load_config.return_value = {
+                "devices": json.load(f)["devices"],
+                "lab_infrastructure": {},
+            }
 
         result = list_devices()
 
@@ -40,7 +43,9 @@ class TestTestDevice:
 
     @patch("lab_testing.tools.device_manager.load_device_config")
     @patch("lab_testing.tools.device_manager.subprocess.run")
-    def test_test_device_success(self, mock_run, mock_load_config, sample_device_config, mock_device_test_result):
+    def test_test_device_success(
+        self, mock_run, mock_load_config, sample_device_config, mock_device_test_result
+    ):
         """Test successful device test"""
         with open(sample_device_config) as f:
             config = json.load(f)
@@ -118,4 +123,3 @@ class TestSSHToDevice:
 
         assert result["success"] is True
         assert "output" in result or "stdout" in result
-

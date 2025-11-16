@@ -15,8 +15,14 @@ import pytest
 def pytest_collection_modifyitems(config, items):
     """Modify test collection to exclude test_device function from device_manager"""
     items[:] = [
-        item for item in items
-        if not (hasattr(item, "nodeid") and ("device_manager.py::test_device" in item.nodeid or "test_device_func" in item.nodeid))
+        item
+        for item in items
+        if not (
+            hasattr(item, "nodeid")
+            and (
+                "device_manager.py::test_device" in item.nodeid or "test_device_func" in item.nodeid
+            )
+        )
     ]
 
 
@@ -42,7 +48,7 @@ def sample_device_config(temp_config_dir: Path) -> Path:
                 "ip": "192.168.1.100",
                 "username": "root",
                 "status": "online",
-                "power_switch": "tasmota_switch_1"
+                "power_switch": "tasmota_switch_1",
             },
             "test_device_2": {
                 "device_type": "embedded_board",
@@ -51,24 +57,20 @@ def sample_device_config(temp_config_dir: Path) -> Path:
                 "hostname": "test-board-2",
                 "ip": "192.168.1.101",
                 "username": "root",
-                "status": "online"
+                "status": "online",
             },
             "tasmota_switch_1": {
                 "device_type": "tasmota_device",
                 "friendly_name": "Lab Power Switch 1",
                 "name": "Power Switch 1",
                 "ip": "192.168.1.88",
-                "tasmota_type": "power_switch"
-            }
+                "tasmota_type": "power_switch",
+            },
         },
         "lab_infrastructure": {
-            "network_access": {
-                "lab_networks": ["192.168.1.0/24"]
-            },
-            "wireguard_vpn": {
-                "gateway_host": "vpn.example.com"
-            }
-        }
+            "network_access": {"lab_networks": ["192.168.1.0/24"]},
+            "wireguard_vpn": {"gateway_host": "vpn.example.com"},
+        },
     }
     config_file.write_text(json.dumps(config, indent=2))
     return config_file
@@ -81,7 +83,7 @@ def mock_ssh_connection():
     mock.exec_command.return_value = (
         Mock(read=lambda: b""),
         Mock(read=lambda: b"output"),
-        Mock(read=lambda: b"")
+        Mock(read=lambda: b""),
     )
     mock.get_transport.return_value.is_active.return_value = True
     return mock
@@ -106,7 +108,7 @@ def mock_vpn_status():
         "connected": True,
         "interface": "wg0",
         "public_key": "test_key",
-        "endpoint": "vpn.example.com:51820"
+        "endpoint": "vpn.example.com:51820",
     }
 
 
@@ -118,7 +120,7 @@ def mock_device_test_result():
         "ping_reachable": True,
         "ssh_available": True,
         "ping": {"success": True, "latency_ms": 5.2},
-        "ssh": {"success": True}
+        "ssh": {"success": True},
     }
 
 
@@ -129,7 +131,7 @@ def mock_tasmota_response():
         "success": True,
         "device_id": "tasmota_switch_1",
         "action": "on",
-        "result": {"POWER": "ON"}
+        "result": {"POWER": "ON"},
     }
 
 
@@ -142,7 +144,7 @@ def mock_ota_status():
         "connected": True,
         "current_version": "1.0.0",
         "target_version": "1.0.0",
-        "update_available": False
+        "update_available": False,
     }
 
 
@@ -155,6 +157,5 @@ def mock_system_status():
         "load": [0.5, 0.6, 0.7],
         "memory": {"total_mb": 1024, "used_mb": 512, "free_mb": 512},
         "disk": {"total_gb": 16, "used_gb": 8, "free_gb": 8},
-        "kernel": "5.10.0"
+        "kernel": "5.10.0",
     }
-

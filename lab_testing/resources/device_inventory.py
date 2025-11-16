@@ -15,7 +15,4 @@ def get_device_inventory() -> Dict[str, Any]:
             config = json.load(f)
             return config
     except Exception as e:
-        return {
-            "error": f"Failed to load device inventory: {e!s}"
-        }
-
+        return {"error": f"Failed to load device inventory: {e!s}"}

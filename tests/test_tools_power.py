@@ -28,11 +28,7 @@ class TestStartPowerMonitoring:
         with open(sample_device_config) as f:
             devices = json.load(f)["devices"]
 
-        mock_dmm.return_value = {
-            "success": True,
-            "monitor_type": "dmm",
-            "process_id": 12345
-        }
+        mock_dmm.return_value = {"success": True, "monitor_type": "dmm", "process_id": 12345}
 
         result = start_power_monitoring(monitor_type="dmm")
 
@@ -52,7 +48,7 @@ class TestStartPowerMonitoring:
         mock_tasmota.return_value = {
             "success": True,
             "monitor_type": "tasmota",
-            "device_id": "tasmota_switch_1"
+            "device_id": "tasmota_switch_1",
         }
 
         result = start_power_monitoring("tasmota_switch_1", monitor_type="tasmota")
@@ -66,7 +62,9 @@ class TestStartPowerMonitoring:
         """Test auto-detection of Tasmota device"""
         mock_config.return_value = sample_device_config
 
-        with patch("lab_testing.tools.power_monitor._start_tasmota_power_monitoring") as mock_tasmota:
+        with patch(
+            "lab_testing.tools.power_monitor._start_tasmota_power_monitoring"
+        ) as mock_tasmota:
             mock_tasmota.return_value = {"success": True, "monitor_type": "tasmota"}
 
             result = start_power_monitoring("tasmota_switch_1")
@@ -113,17 +111,13 @@ class TestTasmotaPowerMonitoring:
     def test_tasmota_monitoring_success(self, mock_tasmota_control):
         """Test successful Tasmota monitoring start"""
         from lab_testing.tools.power_monitor import _start_tasmota_power_monitoring
+
         mock_tasmota_control.return_value = {
             "success": True,
-            "result": {"Energy": {"Total": 1.5, "Today": 0.1, "Power": 5.2}}
+            "result": {"Energy": {"Total": 1.5, "Today": 0.1, "Power": 5.2}},
         }
 
-        devices = {
-            "tasmota_switch_1": {
-                "device_type": "tasmota_device",
-                "name": "Power Switch 1"
-            }
-        }
+        devices = {"tasmota_switch_1": {"device_type": "tasmota_device", "name": "Power Switch 1"}}
 
         result = _start_tasmota_power_monitoring("tasmota_switch_1", "test", 300, devices)
 
@@ -140,11 +134,7 @@ class TestTasmotaPowerMonitoring:
 
     def test_tasmota_monitoring_invalid_device(self):
         """Test Tasmota monitoring with invalid device"""
-        devices = {
-            "other_device": {
-                "device_type": "embedded_board"
-            }
-        }
+        devices = {"other_device": {"device_type": "embedded_board"}}
 
         result = _start_tasmota_power_monitoring("other_device", "test", 300, devices)
 
@@ -155,16 +145,13 @@ class TestTasmotaPowerMonitoring:
     def test_tasmota_monitoring_no_energy_support(self, mock_tasmota_control):
         """Test Tasmota monitoring when energy not supported"""
         from lab_testing.tools.power_monitor import _start_tasmota_power_monitoring
+
         mock_tasmota_control.return_value = {
             "success": False,
-            "error": "Energy monitoring not available"
+            "error": "Energy monitoring not available",
         }
 
-        devices = {
-            "tasmota_switch_1": {
-                "device_type": "tasmota_device"
-            }
-        }
+        devices = {"tasmota_switch_1": {"device_type": "tasmota_device"}}
 
         result = _start_tasmota_power_monitoring("tasmota_switch_1", "test", 300, devices)
 
@@ -202,4 +189,3 @@ class TestGetPowerLogs:
 
         assert result["success"] is False
         assert "not found" in result["error"].lower()
-

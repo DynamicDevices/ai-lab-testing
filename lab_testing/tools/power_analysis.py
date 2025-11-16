@@ -10,16 +10,16 @@ from lab_testing.config import get_logs_dir
 def analyze_power_logs(
     test_name: Optional[str] = None,
     device_id: Optional[str] = None,
-    threshold_mw: Optional[float] = None
+    threshold_mw: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Analyze power logs for low power characteristics.
-    
+
     Args:
         test_name: Filter by test name
         device_id: Filter by device
         threshold_mw: Power threshold in mW for low power detection
-        
+
     Returns:
         Power analysis results
     """
@@ -46,6 +46,7 @@ def analyze_power_logs(
     for log_file in log_files:
         try:
             import csv
+
             power_values = []
             timestamps = []
 
@@ -68,7 +69,7 @@ def analyze_power_logs(
                 "min_power_mw": min(power_values),
                 "max_power_mw": max(power_values),
                 "avg_power_mw": sum(power_values) / len(power_values),
-                "duration_seconds": len(power_values)  # Assuming 1Hz sampling
+                "duration_seconds": len(power_values),  # Assuming 1Hz sampling
             }
 
             # Low power analysis
@@ -78,7 +79,7 @@ def analyze_power_logs(
                     "threshold_mw": threshold_mw,
                     "samples_below": len(low_power_samples),
                     "percentage": (len(low_power_samples) / len(power_values)) * 100,
-                    "min_low_power_mw": min(low_power_samples) if low_power_samples else None
+                    "min_low_power_mw": min(low_power_samples) if low_power_samples else None,
                 }
 
             # Suspend/resume detection (power drops significantly)
@@ -89,38 +90,29 @@ def analyze_power_logs(
                 analysis["suspend_detection"] = {
                     "baseline_mw": baseline,
                     "suspend_threshold_mw": suspend_threshold,
-                    "potential_suspend_events": suspend_events
+                    "potential_suspend_events": suspend_events,
                 }
 
             analyses.append(analysis)
 
         except Exception as e:
-            analyses.append({
-                "log_file": log_file.name,
-                "error": str(e)
-            })
+            analyses.append({"log_file": log_file.name, "error": str(e)})
 
-    return {
-        "analyses": analyses,
-        "count": len(analyses)
-    }
+    return {"analyses": analyses, "count": len(analyses)}
 
 
 def monitor_low_power(
-    device_id: str,
-    duration: int = 300,
-    threshold_mw: float = 100.0,
-    sample_rate: float = 1.0
+    device_id: str, duration: int = 300, threshold_mw: float = 100.0, sample_rate: float = 1.0
 ) -> Dict[str, Any]:
     """
     Monitor device for low power consumption.
-    
+
     Args:
         device_id: Device identifier
         duration: Monitoring duration in seconds
         threshold_mw: Low power threshold in mW
         sample_rate: Sampling rate in Hz
-        
+
     Returns:
         Low power monitoring results
     """
@@ -129,9 +121,7 @@ def monitor_low_power(
 
         # Start monitoring
         result = start_power_monitoring(
-            device_id=device_id,
-            test_name=f"low_power_{device_id}",
-            duration=duration
+            device_id=device_id, test_name=f"low_power_{device_id}", duration=duration
         )
 
         if not result.get("success"):
@@ -145,7 +135,7 @@ def monitor_low_power(
             "threshold_mw": threshold_mw,
             "sample_rate": sample_rate,
             "process_id": result.get("process_id"),
-            "message": f"Monitoring started. Check logs after {duration}s for analysis."
+            "message": f"Monitoring started. Check logs after {duration}s for analysis.",
         }
 
     except Exception as e:
@@ -153,16 +143,15 @@ def monitor_low_power(
 
 
 def compare_power_profiles(
-    test_names: List[str],
-    device_id: Optional[str] = None
+    test_names: List[str], device_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Compare power consumption across multiple test runs.
-    
+
     Args:
         test_names: List of test names to compare
         device_id: Optional device filter
-        
+
     Returns:
         Comparison analysis
     """
@@ -173,13 +162,15 @@ def compare_power_profiles(
         if "error" not in analysis and analysis.get("analyses"):
             # Get average from most recent analysis
             latest = analysis["analyses"][0]
-            comparisons.append({
-                "test_name": test_name,
-                "avg_power_mw": latest.get("avg_power_mw"),
-                "min_power_mw": latest.get("min_power_mw"),
-                "max_power_mw": latest.get("max_power_mw"),
-                "samples": latest.get("samples")
-            })
+            comparisons.append(
+                {
+                    "test_name": test_name,
+                    "avg_power_mw": latest.get("avg_power_mw"),
+                    "min_power_mw": latest.get("min_power_mw"),
+                    "max_power_mw": latest.get("max_power_mw"),
+                    "samples": latest.get("samples"),
+                }
+            )
 
     if not comparisons:
         return {"error": "No valid power profiles found for comparison"}
@@ -190,11 +181,10 @@ def compare_power_profiles(
         for comp in comparisons[1:]:
             comp["vs_baseline"] = {
                 "avg_diff_mw": comp["avg_power_mw"] - baseline["avg_power_mw"],
-                "avg_diff_percent": ((comp["avg_power_mw"] - baseline["avg_power_mw"]) / baseline["avg_power_mw"]) * 100
+                "avg_diff_percent": (
+                    (comp["avg_power_mw"] - baseline["avg_power_mw"]) / baseline["avg_power_mw"]
+                )
+                * 100,
             }
 
-    return {
-        "comparisons": comparisons,
-        "count": len(comparisons)
-    }
-
+    return {"comparisons": comparisons, "count": len(comparisons)}
