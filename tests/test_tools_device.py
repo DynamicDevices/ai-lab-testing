@@ -12,6 +12,8 @@ from lab_testing.tools.device_manager import (
     list_devices,
     resolve_device_identifier,
     ssh_to_device,
+)
+from lab_testing.tools.device_manager import (
     test_device as test_device_func,  # Rename to avoid pytest collection
 )
 

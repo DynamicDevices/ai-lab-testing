@@ -17,7 +17,7 @@ maintainers = [
 ]
 keywords = ["mcp", "model-context-protocol", "embedded", "hardware", "testing", "remote", "iot", "lab", "automation"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Hardware",

@@ -16,7 +16,7 @@ def pytest_collection_modifyitems(config, items):
     """Modify test collection to exclude test_device function from device_manager"""
     items[:] = [
         item for item in items
-        if not (hasattr(item, 'nodeid') and ('device_manager.py::test_device' in item.nodeid or 'test_device_func' in item.nodeid))
+        if not (hasattr(item, "nodeid") and ("device_manager.py::test_device" in item.nodeid or "test_device_func" in item.nodeid))
     ]
 
 

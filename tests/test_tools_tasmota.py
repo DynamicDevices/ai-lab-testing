@@ -29,12 +29,12 @@ class TestTasmotaControl:
         from pathlib import Path
         mock_scripts_dir.return_value = Path("/fake/scripts")
         mock_exists.return_value = True  # Script exists
-        
+
         # Mock config file reading - use mock_open with read_data
         with open(sample_device_config) as f:
             config_json = f.read()
         mock_config.return_value = sample_device_config
-        
+
         with patch("builtins.open", mock_open(read_data=config_json)):
             # Mock subprocess result
             mock_result = MagicMock()

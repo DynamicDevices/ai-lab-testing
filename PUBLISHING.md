@@ -2,20 +2,64 @@
 
 This guide explains how to package and publish `lab-testing` to PyPI.
 
+## ⚠️ Alpha Quality Notice
+
+**IMPORTANT**: This package is currently published as **alpha quality** software:
+- **Not ready for professional or production use**
+- API may change without notice
+- Features may be incomplete or unstable
+- Bugs are expected
+- Use at your own risk
+
+The package is published to PyPI for:
+- Early testing and feedback
+- Development and experimentation
+- Community contribution
+
+**Do not use in production environments or critical systems.**
+
 ## Prerequisites
 
-1. **PyPI Account**: Create accounts on:
-   - [Test PyPI](https://test.pypi.org/) (for testing)
-   - [PyPI](https://pypi.org/) (for production)
+### 1. PyPI Accounts
 
-2. **API Tokens**: Generate API tokens from both sites:
-   - Test PyPI: https://test.pypi.org/manage/account/token/
-   - PyPI: https://pypi.org/manage/account/token/
+Create accounts on both platforms:
+- **[Test PyPI](https://test.pypi.org/account/register/)** - For testing releases
+- **[PyPI](https://pypi.org/account/register/)** - For production releases
 
-3. **Build Tools**: Install required tools:
-   ```bash
-   python3.10 -m pip install --upgrade build twine
-   ```
+**Note**: You can use the same email/password for both, but they are separate accounts.
+
+### 2. API Tokens
+
+Generate API tokens (recommended over passwords):
+
+**Test PyPI:**
+1. Go to https://test.pypi.org/manage/account/token/
+2. Click "Add API token"
+3. Name it (e.g., "lab-testing-testpypi")
+4. Scope: "Entire account" (or "Project: lab-testing" if you prefer)
+5. Copy the token (starts with `pypi-`)
+
+**Production PyPI:**
+1. Go to https://pypi.org/manage/account/token/
+2. Click "Add API token"
+3. Name it (e.g., "lab-testing-pypi")
+4. Scope: "Entire account" (or "Project: lab-testing" if you prefer)
+5. Copy the token (starts with `pypi-`)
+
+**Security**: Store tokens securely. Never commit them to git.
+
+### 3. Build Tools
+
+Install required Python packages:
+```bash
+python3.10 -m pip install --upgrade build twine
+```
+
+### 4. Verify Package Name Availability
+
+Before first publish, verify the package name is available:
+- Check https://pypi.org/project/lab-testing/ (should not exist or be yours)
+- Check https://test.pypi.org/project/lab-testing/ (should not exist or be yours)
 
 ## Configuration
 
@@ -147,31 +191,51 @@ python3.10 -m pip install "lab-testing[dev]"
 - Check `MANIFEST.in` includes all necessary files
 - Run `make clean` before rebuilding
 
-## Automated Publishing (Optional)
+## Automated Publishing (GitHub Actions)
 
-For CI/CD, you can use GitHub Actions:
+The project includes automated publishing via GitHub Actions. See `.github/workflows/build.yml`.
 
-```yaml
-# .github/workflows/publish.yml
-name: Publish to PyPI
+### Setup for Automated Publishing
 
-on:
-  release:
-    types: [created]
+1. **Add PyPI API Token to GitHub Secrets:**
+   - Go to repository Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Name: `PYPI_API_TOKEN`
+   - Value: Your PyPI API token (starts with `pypi-`)
+   - Click "Add secret"
 
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - run: python3.10 -m pip install build twine
-      - run: python3.10 -m build
-      - run: python3.10 -m twine upload dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+2. **How It Works:**
+   - Publishing is triggered when you create a GitHub Release
+   - The workflow builds the package and publishes to PyPI
+   - Uses trusted publishing (no password needed if configured)
+
+3. **Manual Publishing (Alternative):**
+
+If you prefer manual publishing or need to publish to Test PyPI:
+
+```bash
+# Build the package
+make build
+
+# Upload to Test PyPI
+twine upload --repository testpypi dist/*
+
+# Or upload to production PyPI
+twine upload dist/*
 ```
+
+### Trusted Publishing (Recommended)
+
+PyPI supports trusted publishing via GitHub Actions. This is more secure than API tokens:
+
+1. Go to https://pypi.org/manage/account/publishing/
+2. Click "Add pending publisher"
+3. Select "GitHub" as the provider
+4. Enter:
+   - Owner: `DynamicDevices`
+   - Repository name: `mcp-remote-testing`
+   - Workflow filename: `.github/workflows/build.yml`
+5. Click "Add"
+
+This allows the GitHub Action to publish without storing tokens in secrets.
 

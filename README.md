@@ -9,6 +9,8 @@ MCP server exposing remote embedded hardware testing capabilities to AI assistan
 
 **Version**: 0.1.0
 
+> **⚠️ ALPHA QUALITY WARNING**: This package is currently in **alpha** development status. It is **not ready for professional or production use**. The API may change, features may be incomplete, and there may be bugs. Use at your own risk. See [PUBLISHING.md](PUBLISHING.md) for more details.
+
 ## Installation
 
 **Requirements: Python 3.10+** (MCP SDK requires Python 3.10+)
