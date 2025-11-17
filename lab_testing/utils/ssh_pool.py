@@ -22,8 +22,8 @@ _pool_lock = Lock()
 # Connection timeout (seconds of inactivity before closing)
 CONNECTION_TIMEOUT = 300  # 5 minutes
 
-# Maximum pool size
-MAX_POOL_SIZE = 10
+# Maximum pool size - increased for parallel operations
+MAX_POOL_SIZE = 50
 
 
 def _cleanup_stale_connections():
@@ -119,7 +119,7 @@ def get_persistent_ssh_connection(
             "-o",
             f"ControlPath={control_path}",
             "-o",
-            "ControlPersist=300",  # Keep master alive for 5 minutes
+            "ControlPersist=600",  # Keep master alive for 10 minutes (longer for batch operations)
             "-o",
             "BatchMode=yes",
             "-o",

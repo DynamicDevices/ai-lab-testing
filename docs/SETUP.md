@@ -27,6 +27,33 @@ Uses existing lab testing framework:
 
 - `LAB_TESTING_ROOT`: Path to lab testing framework (default: `/data_drive/esl/ai-lab-testing`)
 - `VPN_CONFIG_PATH`: Path to WireGuard config file (optional, auto-detected if not set)
+- `TARGET_NETWORK`: Target network for lab testing operations (default: `192.168.2.0/24`)
+- `MCP_DEV_MODE`: Enable development mode with auto-reload (set to `1`, `true`, or `yes` to enable)
+
+### Target Network Configuration
+
+The target network determines which network is used for lab testing operations. It can be configured in three ways (priority order):
+
+1. **Environment Variable**: Set `TARGET_NETWORK` environment variable
+   ```bash
+   export TARGET_NETWORK=192.168.2.0/24
+   ```
+
+2. **Config File**: Add to `lab_devices.json`:
+   ```json
+   {
+     "lab_infrastructure": {
+       "network_access": {
+         "target_network": "192.168.2.0/24",
+         "lab_networks": ["192.168.2.0/24"]
+       }
+     }
+   }
+   ```
+
+3. **Default**: `192.168.2.0/24` (if not configured)
+
+The `lab_networks` list can contain multiple networks for scanning, but `target_network` specifies the primary network for lab operations.
 
 ### VPN Configuration
 
@@ -51,7 +78,10 @@ Add to `~/.cursor/mcp.json`:
     "ai-lab-testing": {
       "command": "python3.10",
       "args": ["/absolute/path/to/lab_testing/server.py"],
-      "env": {"LAB_TESTING_ROOT": "/data_drive/esl/ai-lab-testing"}
+      "env": {
+        "LAB_TESTING_ROOT": "/data_drive/esl/ai-lab-testing",
+        "MCP_DEV_MODE": "1"
+      }
     }
   }
 }
@@ -61,7 +91,30 @@ Add to `~/.cursor/mcp.json`:
 
 Or use installed package: `"command": "python3.10", "args": ["-m", "lab_testing.server"]`
 
-Restart Cursor.
+### Development Mode (Auto-Reload)
+
+During development, you can enable auto-reload so that code changes are picked up automatically without restarting Cursor. This is especially useful when modifying tool handlers or network mapping code.
+
+**To enable:** Add `"MCP_DEV_MODE": "1"` to the `env` section in your MCP configuration (as shown above).
+
+**How it works:**
+- The server checks for file changes before each tool call
+- Modified Python modules are automatically reloaded using `importlib.reload()`
+- No need to restart Cursor after making code changes
+- Reloaded modules are logged for debugging
+
+**Note:** Auto-reload only works for modules in the `lab_testing` package. Changes to `server.py` itself still require a restart.
+
+Restart Cursor after initial setup.
+
+### Tool Call Timeouts
+
+**Note:** Some tools (like `create_network_map`) may take longer than 30 seconds if they perform network scans. Cursor has a default 30-second timeout for MCP tool calls.
+
+**Solutions:**
+1. **Use Quick Mode**: For `create_network_map`, set `quick_mode: true` to skip network scanning and only show configured devices (completes in <5 seconds).
+2. **Optimized Scanning**: The network scanner has been optimized with faster ping timeouts (0.5s) and increased parallelism (100 workers) to reduce scan time.
+3. **Client Timeout**: Currently, there's no way to configure the MCP client timeout in Cursor's `mcp.json`. The timeout is hardcoded in the Cursor client. If you need full network scans, consider running the tool directly via Python or use quick mode for faster results.
 
 ## Verification
 

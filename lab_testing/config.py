@@ -27,6 +27,10 @@ LAB_DEVICES_JSON = CONFIG_DIR / "lab_devices.json"
 # If not set, searches common locations
 VPN_CONFIG_PATH_ENV = os.getenv("VPN_CONFIG_PATH")
 
+# Target network configuration - can be overridden via TARGET_NETWORK environment variable
+# Default target network for lab testing operations
+DEFAULT_TARGET_NETWORK = os.getenv("TARGET_NETWORK", "192.168.2.0/24")
+
 
 def get_lab_devices_config() -> Path:
     """Get path to lab devices configuration file"""
@@ -97,6 +101,72 @@ def get_scripts_dir() -> Path:
 def get_logs_dir() -> Path:
     """Get path to logs directory"""
     return LOGS_DIR
+
+
+def get_target_network() -> str:
+    """
+    Get the target network for lab testing operations.
+    
+    Priority:
+    1. TARGET_NETWORK environment variable
+    2. Value from lab_devices.json config file (if exists)
+    3. Default: 192.168.2.0/24
+    
+    Returns:
+        Network CIDR string (e.g., "192.168.2.0/24")
+    """
+    # Check environment variable first
+    env_network = os.getenv("TARGET_NETWORK")
+    if env_network:
+        return env_network
+    
+    # Check config file
+    try:
+        if LAB_DEVICES_JSON.exists():
+            import json
+            with open(LAB_DEVICES_JSON) as f:
+                config = json.load(f)
+                infrastructure = config.get("lab_infrastructure", {})
+                network_access = infrastructure.get("network_access", {})
+                target_network = network_access.get("target_network")
+                if target_network:
+                    return target_network
+    except Exception:
+        # If config read fails, fall back to default
+        pass
+    
+    # Default target network
+    return DEFAULT_TARGET_NETWORK
+
+
+def get_lab_networks() -> list[str]:
+    """
+    Get list of lab networks for scanning.
+    
+    Priority:
+    1. Networks from lab_devices.json config file
+    2. TARGET_NETWORK environment variable (as single-item list)
+    3. Default: [target_network]
+    
+    Returns:
+        List of network CIDR strings
+    """
+    # Check config file first
+    try:
+        if LAB_DEVICES_JSON.exists():
+            import json
+            with open(LAB_DEVICES_JSON) as f:
+                config = json.load(f)
+                infrastructure = config.get("lab_infrastructure", {})
+                network_access = infrastructure.get("network_access", {})
+                lab_networks = network_access.get("lab_networks")
+                if lab_networks and isinstance(lab_networks, list):
+                    return lab_networks
+    except Exception:
+        pass
+    
+    # Fall back to target network
+    return [get_target_network()]
 
 
 def validate_config() -> tuple:

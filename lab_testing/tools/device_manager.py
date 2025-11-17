@@ -4,9 +4,10 @@ Device Management Tools for MCP Server
 
 import json
 import subprocess
+from pathlib import Path
 from typing import Any, Dict, Optional
 
-from lab_testing.config import get_lab_devices_config
+from lab_testing.config import CONFIG_DIR, get_lab_devices_config, get_target_network
 from lab_testing.exceptions import (
     DeviceConnectionError,
     DeviceNotFoundError,
@@ -18,57 +19,408 @@ from lab_testing.utils.logger import get_logger
 logger = get_logger()
 
 
+def _create_default_config(config_path: Path) -> Dict[str, Any]:
+    """Create a default device configuration file"""
+    default_config = {
+        "devices": {
+            "example_device": {
+                "name": "Example Device",
+                "ip": "192.168.1.100",
+                "ports": {
+                    "ssh": 22,
+                    "http": 80,
+                    "https": 443
+                },
+                "device_type": "example",
+                "description": "Template entry - replace with actual lab devices",
+                "status": "template",
+                "last_tested": None
+            }
+        },
+        "lab_infrastructure": {
+            "primary_access": {
+                "method": "wireguard_vpn",
+                "description": "WireGuard VPN - Primary method for lab access",
+                "status": "active"
+            },
+            "network_access": {
+                "target_network": "192.168.2.0/24",
+                "lab_networks": [
+                    "192.168.2.0/24"
+                ],
+                "primary_method": "wireguard_vpn"
+            }
+        },
+        "device_categories": {
+            "development_boards": [],
+            "test_equipment": [],
+            "network_infrastructure": [],
+            "embedded_controllers": [],
+            "sensors": [],
+            "other": [],
+            "tasmota_devices": []
+        }
+    }
+    
+    # Ensure config directory exists
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Write default config
+    with open(config_path, "w") as f:
+        json.dump(default_config, f, indent=2)
+    
+    logger.info(f"Created default device configuration at {config_path}")
+    return default_config
+
+
 def load_device_config() -> Dict[str, Any]:
-    """Load device configuration from JSON file"""
+    """Load device configuration from JSON file, creating it if it doesn't exist"""
     config_path = get_lab_devices_config()
     try:
         with open(config_path) as f:
             return json.load(f)
     except FileNotFoundError:
-        return {"devices": {}, "lab_infrastructure": {}}
+        logger.info(f"Device configuration not found at {config_path}, creating default")
+        return _create_default_config(config_path)
     except json.JSONDecodeError as e:
         raise ValueError(f"Error parsing device configuration: {e}")
 
 
 def list_devices() -> Dict[str, Any]:
     """
-    List all configured lab devices with their status and details.
+    List devices actually on the target network by scanning it.
+    Uses cached device information when available, and updates cache for new discoveries.
+    Excludes example/template devices and only shows devices that are online.
+    Optimized for speed with parallel SSH identification.
 
     Returns:
         Dictionary containing device list and summary information
     """
+    from lab_testing.tools.network_mapper import _scan_network_range, _get_device_info_from_config
+    from lab_testing.utils.device_cache import identify_and_cache_device, get_cached_device_info
+    from lab_testing.tools.vpn_manager import get_vpn_status
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import ipaddress
+    
+    # Get target network
+    target_network = get_target_network()
+    
+    # Check VPN status to determine if devices are discovered via VPN
+    vpn_status = get_vpn_status()
+    vpn_connected = vpn_status.get("connected", False)
+    
+    logger.info(f"Scanning target network {target_network} for devices (VPN: {'connected' if vpn_connected else 'disconnected'})")
+    
+    # Scan the target network for active devices
+    active_hosts = _scan_network_range(target_network, max_hosts=254, timeout=0.5)
+    
+    # Load config to match discovered hosts with configured devices
     config = load_device_config()
-    devices = config.get("devices", {})
-
-    # Organize devices by type
+    configured_devices = config.get("devices", {})
+    
+    # Separate devices into cached and uncached for parallel processing
+    cached_devices = {}
+    uncached_ips = []
+    
+    # Also check for Tasmota and test equipment devices
+    from lab_testing.tools.device_detection import detect_tasmota_device, detect_test_equipment
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+    # Track IPs that need Tasmota/test equipment detection
+    ips_needing_detection = []
+    
+    for host in active_hosts:
+        ip = host["ip"]
+        cached_info = get_cached_device_info(ip)
+        if cached_info:
+            cached_devices[ip] = cached_info
+            # Check if cached device needs Tasmota/test equipment detection
+            # (e.g., old cache entries without detection, or devices that might have changed)
+            if not cached_info.get("tasmota_detected") and not cached_info.get("test_equipment_detected"):
+                ips_needing_detection.append(ip)
+        else:
+            uncached_ips.append(ip)
+            ips_needing_detection.append(ip)
+    
+    # Quick detection of Tasmota and test equipment devices (parallel)
+    # Check both uncached IPs and cached IPs that don't have detection yet
+    if ips_needing_detection:
+        def _detect_device_type(ip: str) -> tuple:
+            """Detect device type - runs in thread pool"""
+            tasmota_info = detect_tasmota_device(ip, timeout=2.0)
+            if tasmota_info:
+                return (ip, tasmota_info)
+            test_equip_info = detect_test_equipment(ip, timeout=2.0)
+            if test_equip_info:
+                return (ip, test_equip_info)
+            return (ip, None)
+        
+        # Detect device types in parallel (quick check)
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(_detect_device_type, ip): ip for ip in ips_needing_detection}
+            for future in as_completed(futures):
+                ip, device_type_info = future.result()
+                if device_type_info:
+                    # Store detected type info in memory
+                    if ip not in cached_devices:
+                        cached_devices[ip] = {}
+                    cached_devices[ip].update(device_type_info)
+                    
+                    # Save Tasmota/test equipment detection to persistent cache
+                    from lab_testing.utils.device_cache import cache_device_info
+                    cache_device_info(ip, device_type_info)
+    
+    # Parallel identification of uncached devices
+    if uncached_ips:
+        logger.debug(f"Identifying {len(uncached_ips)} uncached devices in parallel...")
+        
+        def _identify_device_with_username(ip: str, username: str) -> tuple:
+            """Identify a single device with a specific username - runs in thread pool"""
+            try:
+                identified_info = identify_and_cache_device(ip, username=username, ssh_port=22)
+                if identified_info.get("hostname") or identified_info.get("device_found"):
+                    return (ip, identified_info, True)  # True = success
+                return (ip, {}, False)
+            except Exception as e:
+                logger.debug(f"Failed to identify {ip} with username {username}: {e}")
+                return (ip, {}, False)
+        
+        # Try usernames in parallel for each device (faster than sequential)
+        # Prioritize "fio" first, then "root" as fallback
+        # Use ThreadPoolExecutor for parallel identification (max 10 concurrent = 5 devices * 2 usernames)
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            # Submit all username attempts in parallel
+            futures = []
+            for ip in uncached_ips:
+                for username in ["fio", "root"]:  # Try fio first, then root
+                    future = executor.submit(_identify_device_with_username, ip, username)
+                    futures.append((future, ip))
+            
+            # Track which IPs have been successfully identified
+            identified_ips = set()
+            
+            # Process results as they complete
+            for future, ip in futures:
+                if ip in identified_ips:
+                    continue  # Skip if already identified
+                
+                try:
+                    ip_result, identified_info, success = future.result(timeout=6)  # Max 6s per attempt
+                    if success:
+                        # Merge with existing cached data (preserves Tasmota/test equipment detection)
+                        if ip in cached_devices:
+                            cached_devices[ip].update(identified_info)
+                        else:
+                            cached_devices[ip] = identified_info
+                        identified_ips.add(ip)
+                        # Cancel remaining futures for this IP
+                        for f, ip_check in futures:
+                            if ip_check == ip and not f.done():
+                                f.cancel()
+                except Exception:
+                    continue
+            
+            # For any IPs that weren't identified, add empty dict
+            for ip in uncached_ips:
+                if ip not in identified_ips:
+                    cached_devices[ip] = {}
+    
+    # Organize discovered devices by type
     by_type = {}
-    for device_id, device_info in devices.items():
-        device_type = device_info.get("device_type", "other")
+    discovered_devices = []
+    
+    for host in active_hosts:
+        ip = host["ip"]
+        
+        # Check if this IP matches a configured device
+        config_device_info = _get_device_info_from_config(ip, config)
+        
+        # Skip example/template devices from config
+        if config_device_info:
+            if config_device_info.get("type") == "example":
+                continue
+            if config_device_info.get("status") == "template":
+                continue
+        
+        # Get cached info (from parallel identification above)
+        cached_info = cached_devices.get(ip, {})
+        
+        # If not in memory cache, try loading from persistent cache
+        # (This can happen if Tasmota detection saved to cache but wasn't loaded initially)
+        if not cached_info:
+            from lab_testing.utils.device_cache import get_cached_device_info
+            cached_info = get_cached_device_info(ip) or {}
+            if cached_info:
+                cached_devices[ip] = cached_info  # Store in memory for later use
+        
+        # Use cached/identified info
+        if cached_info and cached_info.get("device_found"):
+            # Use cached identification
+            device_id = cached_info.get("device_id") or (config_device_info.get("device_id") if config_device_info else f"device_{ip.replace('.', '_')}")
+            friendly_name = cached_info.get("friendly_name") or (config_device_info.get("name") if config_device_info else cached_info.get("hostname") or f"Device at {ip}")
+            device_type = "other"  # Will be determined from config if available
+            status = "online"
+            hostname = cached_info.get("hostname")
+        elif cached_info and cached_info.get("hostname"):
+            # Has hostname but not fully identified
+            device_id = config_device_info.get("device_id") if config_device_info else f"device_{ip.replace('.', '_')}"
+            friendly_name = cached_info.get("hostname") or (config_device_info.get("name") if config_device_info else f"Device at {ip}")
+            device_type = "other"
+            status = "discovered"
+            hostname = cached_info.get("hostname")
+        else:
+            # Device not identified - use defaults
+            device_id = config_device_info.get("device_id") if config_device_info else f"device_{ip.replace('.', '_')}"
+            friendly_name = config_device_info.get("name") if config_device_info else f"Device at {ip}"
+            device_type = "other"
+            status = "discovered"
+            hostname = None
+        
+        # Try to match device by hostname if not matched by IP
+        if not config_device_info and hostname:
+            # Search config for device with matching hostname
+            for dev_id, dev_info in configured_devices.items():
+                if dev_info.get("hostname") == hostname or dev_id == hostname:
+                    config_device_info = {
+                        "device_id": dev_id,
+                        "name": dev_info.get("name", "Unknown"),
+                        "type": dev_info.get("device_type", "other"),
+                        "status": dev_info.get("status", "unknown"),
+                    }
+                    device_id = dev_id
+                    break
+        
+        # Try to match by device_id from cache if available
+        if not config_device_info and cached_info and cached_info.get("device_id"):
+            cached_device_id = cached_info.get("device_id")
+            if cached_device_id in configured_devices:
+                dev_info = configured_devices[cached_device_id]
+                config_device_info = {
+                    "device_id": cached_device_id,
+                    "name": dev_info.get("name", "Unknown"),
+                    "type": dev_info.get("device_type", "other"),
+                    "status": dev_info.get("status", "unknown"),
+                }
+                device_id = cached_device_id
+        
+        # Get device type and full details from config if device is configured
+        if config_device_info:
+            device_id = config_device_info.get("device_id", device_id)
+            device_type = config_device_info.get("type", "other")
+            # Fix: config uses "device_type" not "type"
+            full_device_data = configured_devices.get(device_id, {})
+            if full_device_data:
+                device_type = full_device_data.get("device_type", device_type)
+            friendly_name = full_device_data.get("friendly_name") or full_device_data.get("name") or friendly_name
+            hostname = full_device_data.get("hostname") or hostname
+            status = "online"  # Known device that's online
+            
+            # Override device type if Tasmota/test equipment detected (detection is authoritative)
+            if cached_info:
+                if cached_info.get("tasmota_detected"):
+                    device_type = "tasmota_device"
+                elif cached_info.get("test_equipment_detected"):
+                    device_type = "test_equipment"
+        else:
+            # Use cached hostname if available
+            if not hostname and cached_info:
+                hostname = cached_info.get("hostname")
+            
+            # Check for detected device types (Tasmota, test equipment)
+            if cached_info.get("tasmota_detected"):
+                device_type = "tasmota_device"
+            elif cached_info.get("test_equipment_detected"):
+                device_type = "test_equipment"
+            # Infer device type from hostname patterns
+            elif hostname:
+                hostname_lower = hostname.lower()
+                if "eink" in hostname_lower:
+                    device_type = "eink_board"
+                elif "sentai" in hostname_lower:
+                    device_type = "sentai_board"
+                # Keep existing logic for other patterns
+                elif any(x in hostname_lower for x in ['board', 'dev', 'test', 'lab']):
+                    device_type = "development_board"
+                elif any(x in hostname_lower for x in ['router', 'switch', 'gateway']):
+                    device_type = "network_device"
+        
         if device_type not in by_type:
             by_type[device_type] = []
-        friendly_name = device_info.get("friendly_name") or device_info.get("name", device_id)
-        by_type[device_type].append(
-            {
-                "id": device_id,
-                "friendly_name": friendly_name,
-                "name": device_info.get("name", "Unknown"),
-                "hostname": device_info.get("hostname"),  # Unique ID from hostname
-                "ip": device_info.get("ip", "Unknown"),
-                "status": device_info.get("status", "unknown"),
-                "last_tested": device_info.get("last_tested"),
-            }
-        )
-
+        
+        # Get full device data if available
+        full_device_data = configured_devices.get(device_id, {}) if config_device_info else {}
+        
+        # Get firmware version from cache/identified info
+        firmware_info = None
+        if cached_info:
+            firmware_info = cached_info.get("firmware")
+        
+        # Get SSH error from cache if available
+        ssh_error = None
+        ssh_error_type = None
+        if cached_info:
+            ssh_error = cached_info.get("ssh_error")
+            ssh_error_type = cached_info.get("ssh_error_type")
+        
+        # Get Tasmota power info from cache if available
+        tasmota_power_state = None
+        tasmota_power_watts = None
+        if cached_info and cached_info.get("tasmota_detected"):
+            tasmota_power_state = cached_info.get("tasmota_power_state")
+            tasmota_power_watts = cached_info.get("tasmota_power_watts")
+        
+        # Collect all device details
+        device_entry = {
+            "id": device_id,
+            "friendly_name": friendly_name,
+            "name": full_device_data.get("name", friendly_name) if full_device_data else friendly_name,
+            "hostname": hostname or full_device_data.get("hostname"),
+            "ip": ip,
+            "status": status,
+            "latency_ms": host.get("latency_ms"),
+            "last_tested": full_device_data.get("last_tested") if full_device_data else None,
+            "firmware": firmware_info,
+            "discovered_via_vpn": vpn_connected,  # Mark if discovered via VPN
+            "ssh_error": ssh_error,  # SSH connection error if any
+            "ssh_error_type": ssh_error_type,  # Type of SSH error
+            "tasmota_power_state": tasmota_power_state,  # Tasmota power state (on/off)
+            "tasmota_power_watts": tasmota_power_watts,  # Tasmota power consumption in Watts
+        }
+        
+        # Add additional device details from config if available
+        if full_device_data:
+            device_entry.update({
+                "device_type": full_device_data.get("device_type", device_type),
+                "description": full_device_data.get("description"),
+                "model": full_device_data.get("model"),
+                "manufacturer": full_device_data.get("manufacturer"),
+                "serial_number": full_device_data.get("serial_number"),
+                "ports": full_device_data.get("ports", {}),
+                "ssh_user": full_device_data.get("ssh_user"),
+            })
+            # Use friendly_name from config if available
+            if full_device_data.get("friendly_name"):
+                device_entry["friendly_name"] = full_device_data.get("friendly_name")
+        else:
+            device_entry["device_type"] = device_type
+            # If we have hostname from cache but device not in config, use hostname as friendly name
+            if hostname and hostname != f"Device at {ip}":
+                device_entry["friendly_name"] = hostname
+        
+        by_type[device_type].append(device_entry)
+        discovered_devices.append(ip)
+    
     # Get infrastructure info
     infrastructure = config.get("lab_infrastructure", {})
-    vpn_info = infrastructure.get("wireguard_vpn", {})
-
+    
     return {
-        "total_devices": len(devices),
+        "success": True,
+        "total_devices": len(discovered_devices),
         "devices_by_type": by_type,
-        "vpn_gateway": vpn_info.get("gateway_host", "Unknown"),
+        "target_network": target_network,
+        "vpn_connected": vpn_connected,
         "lab_networks": infrastructure.get("network_access", {}).get("lab_networks", []),
-        "summary": f"Found {len(devices)} configured devices across {len(by_type)} categories",
+        "summary": f"Found {len(discovered_devices)} active devices on {target_network}",
     }
 
 
@@ -104,26 +456,50 @@ def test_device(device_id_or_name: str) -> Dict[str, Any]:
 
     # Test connectivity
     try:
+        # Use faster ping for parallel operations: 1 packet with shorter timeout
         result = subprocess.run(
-            ["ping", "-c", "3", "-W", "2", ip],
+            ["ping", "-c", "1", "-W", "1", ip],
             check=False,
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=3,  # Reduced timeout for faster parallel operations
         )
 
         reachable = result.returncode == 0
 
         # Test SSH if device has SSH port
+        # Try to use SSH connection pool first (faster if connection exists)
         ssh_available = False
+        ssh_port = device.get("ports", {}).get("ssh", 22)
         if device.get("ports", {}).get("ssh"):
-            ssh_result = subprocess.run(
-                ["nc", "-z", "-w", "2", ip, str(device["ports"]["ssh"])],
-                check=False,
-                capture_output=True,
-                timeout=5,
-            )
-            ssh_available = ssh_result.returncode == 0
+            # Try SSH connection pool first (if connection exists, this is instant)
+            try:
+                from lab_testing.utils.ssh_pool import get_persistent_ssh_connection
+                username = device.get("ssh_user", "root")
+                master = get_persistent_ssh_connection(ip, username, device_id, ssh_port)
+                if master and master.poll() is None:
+                    # Connection exists, test with a quick SSH command
+                    from lab_testing.utils.ssh_pool import execute_via_pool
+                    test_result = execute_via_pool(ip, username, "echo test", device_id, ssh_port)
+                    ssh_available = test_result.returncode == 0
+                else:
+                    # No connection, use netcat for quick port check
+                    ssh_result = subprocess.run(
+                        ["nc", "-z", "-w", "2", ip, str(ssh_port)],
+                        check=False,
+                        capture_output=True,
+                        timeout=5,
+                    )
+                    ssh_available = ssh_result.returncode == 0
+            except Exception:
+                # Fallback to netcat if SSH pool check fails
+                ssh_result = subprocess.run(
+                    ["nc", "-z", "-w", "2", ip, str(ssh_port)],
+                    check=False,
+                    capture_output=True,
+                    timeout=5,
+                )
+                ssh_available = ssh_result.returncode == 0
 
         friendly_name = device.get("friendly_name") or device.get("name", device_id)
 

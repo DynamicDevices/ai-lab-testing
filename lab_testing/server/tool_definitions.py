@@ -158,6 +158,11 @@ def get_all_tools() -> List[Tool]:
                         "description": "Maximum hosts to scan per network (default: 254)",
                         "default": 254,
                     },
+                    "quick_mode": {
+                        "type": "boolean",
+                        "description": "If true, skip network scanning and only show configured devices (faster, <5s). Use this if tool calls timeout (default: false)",
+                        "default": False,
+                    },
                 },
                 "required": [],
             },
@@ -514,6 +519,24 @@ def get_all_tools() -> List[Tool]:
                     "device_id": {"type": "string", "description": "Optional device filter"},
                 },
                 "required": ["test_names"],
+            },
+        ),
+        Tool(
+            name="update_device_friendly_name",
+            description="Update the friendly name for a discovered device in the cache. This allows you to use a custom name when referencing devices.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "ip": {
+                        "type": "string",
+                        "description": "IP address of the device",
+                    },
+                    "friendly_name": {
+                        "type": "string",
+                        "description": "New friendly name to set for the device",
+                    },
+                },
+                "required": ["ip", "friendly_name"],
             },
         ),
     ]

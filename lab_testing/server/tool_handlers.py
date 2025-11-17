@@ -14,11 +14,20 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
-from mcp.types import TextContent
+from mcp.types import ImageContent, TextContent
 
 from lab_testing.resources.help import get_help_content
+
+# Development auto-reload support
+try:
+    from lab_testing.server.dev_reload import is_dev_mode, reload_lab_testing_modules
+    _DEV_MODE = is_dev_mode()
+except ImportError:
+    _DEV_MODE = False
+    def reload_lab_testing_modules():
+        return []
 
 # Import all tool functions
 from lab_testing.tools.batch_operations import (
@@ -38,6 +47,8 @@ from lab_testing.tools.device_verification import (
 )
 from lab_testing.tools.network_mapper import (
     create_network_map,
+    generate_network_map_image,
+    generate_network_map_mermaid,
     generate_network_map_visualization,
 )
 from lab_testing.tools.ota_manager import (
@@ -96,6 +107,224 @@ else:
 logger = get_logger()
 
 
+def _format_tasmota_devices_as_table(tasmota_result: Dict[str, Any]) -> str:
+    """
+    Format Tasmota device information as a markdown table.
+    
+    Args:
+        tasmota_result: Result dictionary from list_tasmota_devices()
+    
+    Returns:
+        Formatted markdown table string
+    """
+    if not tasmota_result.get("success", False):
+        error = tasmota_result.get("error", "Unknown error")
+        return f"**Error:** {error}"
+    
+    devices = tasmota_result.get("devices", [])
+    count = tasmota_result.get("count", 0)
+    
+    if count == 0:
+        return "**No Tasmota devices configured.**"
+    
+    lines = []
+    lines.append(f"## Tasmota Power Switches ({count} device(s))\n")
+    lines.append("| Friendly Name | Device ID | IP Address | Type | Status | Controls |")
+    lines.append("|---------------|-----------|------------|------|--------|----------|")
+    
+    for device in devices:
+        friendly_name = device.get("friendly_name", "Unknown")[:25]
+        device_id = device.get("id", device.get("device_id", "Unknown"))[:25]
+        ip = device.get("ip", "Unknown")
+        device_type = device.get("type", "unknown").replace("_", " ").title()
+        status = device.get("status", "unknown")
+        
+        # Format status
+        if status == "online":
+            status_display = "🟢 Online"
+        elif status == "offline":
+            status_display = "🔴 Offline"
+        else:
+            status_display = "⚪ Unknown"
+        
+        # Get controlled devices
+        controlled = device.get("controls_devices", [])
+        if controlled:
+            controlled_names = [d.get("friendly_name", d.get("name", "Unknown")) for d in controlled]
+            controlled_str = ", ".join(controlled_names[:3])  # Show first 3
+            if len(controlled) > 3:
+                controlled_str += f" (+{len(controlled) - 3} more)"
+        else:
+            controlled_str = "—"
+        
+        lines.append(f"| {friendly_name} | {device_id} | {ip} | {device_type} | {status_display} | {controlled_str} |")
+    
+    return "\n".join(lines)
+
+
+def _format_devices_as_table(devices_result: Dict[str, Any]) -> str:
+    """
+    Format device information as a markdown table for easy reading.
+    
+    Args:
+        devices_result: Result dictionary from list_devices()
+    
+    Returns:
+        Formatted markdown table string
+    """
+    devices_by_type = devices_result.get("devices_by_type", {})
+    total_devices = devices_result.get("total_devices", 0)
+    
+    if total_devices == 0:
+        return "**No devices configured.**\n\nAdd devices to your `lab_devices.json` configuration file."
+    
+    lines = []
+    lines.append(f"## Device Inventory ({total_devices} total devices)\n")
+    
+    # Create markdown table
+    lines.append("| Friendly Name | IP Address | Status | Device ID | Type | Firmware | VPN | SSH Status |")
+    lines.append("|---------------|------------|--------|-----------|------|----------|-----|------------|")
+    
+    # Collect all devices with their types
+    all_devices = []
+    for device_type, device_list in devices_by_type.items():
+        type_name = device_type.replace("_", " ").title()
+        for device in device_list:
+            device["_type"] = type_name
+            all_devices.append(device)
+    
+    # Sort all devices by type, then by friendly name
+    sorted_devices = sorted(
+        all_devices,
+        key=lambda x: (
+            x.get("_type", ""),
+            (x.get("friendly_name") or x.get("name", "")).lower()
+        )
+    )
+    
+    for device in sorted_devices:
+        friendly_name = device.get("friendly_name") or device.get("name", "Unknown")
+        device_id = device.get("id", "Unknown")
+        ip = device.get("ip", "Unknown")
+        status = device.get("status", "unknown")
+        # Use device_type from device data, fallback to _type (which is the formatted type name)
+        device_type = device.get("device_type") or device.get("_type", "Unknown")
+        firmware = device.get("firmware")
+        hostname = device.get("hostname")
+        description = device.get("description")
+        model = device.get("model")
+        
+        # Format status with emoji
+        if status == "online":
+            status_display = "🟢 Online"
+        elif status == "offline":
+            status_display = "🔴 Offline"
+        elif status == "discovered":
+            status_display = "🔵 Discovered"
+        elif status == "verified":
+            status_display = "✅ Verified"
+        elif status == "template":
+            status_display = "📋 Template"
+        else:
+            status_display = f"⚪ {status.title()}"
+        
+        # Format firmware version
+        firmware_display = "—"
+        if firmware:
+            version_id = firmware.get("version_id", "")
+            pretty_name = firmware.get("pretty_name", "")
+            if version_id and version_id != "Unknown":
+                firmware_display = version_id
+            elif pretty_name and pretty_name != "Unknown":
+                firmware_display = pretty_name[:20] + ("..." if len(pretty_name) > 20 else "")
+        
+        # Format VPN status
+        discovered_via_vpn = device.get("discovered_via_vpn", False)
+        vpn_display = "🔒 VPN" if discovered_via_vpn else "—"
+        
+        # Format SSH status/errors
+        ssh_error = device.get("ssh_error")
+        ssh_error_type = device.get("ssh_error_type")
+        if ssh_error:
+            if ssh_error_type == "timeout":
+                ssh_display = "⏱️ Timeout"
+            elif ssh_error_type == "connection_refused":
+                ssh_display = "🚫 Refused"
+            elif ssh_error_type == "auth_failed":
+                ssh_display = "🔐 Auth Failed"
+            else:
+                ssh_display = "❌ SSH Error"
+        elif hostname:
+            ssh_display = "✅ OK"
+        else:
+            ssh_display = "—"
+        
+        # Format device type - use more descriptive names
+        device_type_display = device_type.replace("_", " ").title()
+        
+        # For Tasmota devices, add power state and consumption
+        if device_type == "tasmota_device":
+            # Get Tasmota power info from device data
+            tasmota_power_state = device.get("tasmota_power_state")
+            tasmota_power_watts = device.get("tasmota_power_watts")
+            
+            power_info = ""
+            if tasmota_power_state:
+                power_icon = "🟢" if tasmota_power_state == "on" else "🔴"
+                power_info = f" {power_icon} {tasmota_power_state.upper()}"
+            
+            if tasmota_power_watts is not None:
+                power_info += f" {tasmota_power_watts:.1f}W"
+            
+            if power_info:
+                device_type_display = f"Tasmota Device{power_info}"
+            else:
+                device_type_display = "Tasmota Device"
+        elif device_type_display == "Other":
+            # Try to get more info from description or model
+            if model:
+                device_type_display = model[:20]
+            elif description:
+                device_type_display = description[:20] + ("..." if len(description) > 20 else "")
+            # If still "Other" and we have hostname, use that as a hint
+            elif hostname and hostname != device_id:
+                # Try to infer type from hostname patterns
+                hostname_lower = hostname.lower()
+                if any(x in hostname_lower for x in ['board', 'dev', 'test', 'lab']):
+                    device_type_display = "Lab Device"
+                elif any(x in hostname_lower for x in ['router', 'switch', 'gateway']):
+                    device_type_display = "Network Device"
+                else:
+                    device_type_display = hostname[:20] if len(hostname) <= 20 else hostname[:17] + "..."
+        elif device_type_display == "Eink Board":
+            device_type_display = "E-ink Board"
+        elif device_type_display == "Sentai Board":
+            device_type_display = "Sentai Board"
+        
+        # Format hostname/identifier - prefer hostname, show device_id if no hostname
+        if hostname and hostname != device_id:
+            identifier_display = hostname
+        else:
+            identifier_display = device_id
+        if len(identifier_display) > 25:
+            identifier_display = identifier_display[:22] + "..."
+        
+        # Truncate long names/IDs for table readability
+        friendly_name_display = friendly_name[:30] + ("..." if len(friendly_name) > 30 else "")
+        device_id_display = device_id[:20] + ("..." if len(device_id) > 20 else "")
+        
+        lines.append(f"| {friendly_name_display} | `{ip}` | {status_display} | `{identifier_display}` | {device_type_display} | {firmware_display} | {vpn_display} | {ssh_display} |")
+    
+    # Add network info if available
+    lab_networks = devices_result.get("lab_networks", [])
+    if lab_networks:
+        lines.append(f"\n### Lab Networks\n")
+        for network in lab_networks:
+            lines.append(f"- {network}")
+    
+    return "\n".join(lines)
+
+
 def _record_tool_result(name: str, result: Dict[str, Any], request_id: str, start_time: float):
     """Helper to record tool result and metrics"""
     success = result.get("success", False)
@@ -107,7 +336,7 @@ def _record_tool_result(name: str, result: Dict[str, Any], request_id: str, star
 
 def handle_tool(
     name: str, arguments: Dict[str, Any], request_id: str, start_time: float
-) -> List[TextContent]:
+) -> List[Union[TextContent, ImageContent]]:
     """
     Handle tool execution. This function routes tool calls to appropriate handlers.
 
@@ -120,12 +349,51 @@ def handle_tool(
     Returns:
         List of TextContent responses
     """
+    # Development mode: Auto-reload modules if they've changed
+    # Note: We skip reloading tool_handlers itself to avoid breaking the current execution
+    if _DEV_MODE:
+        try:
+            reloaded = reload_lab_testing_modules()
+            # Filter out tool_handlers from reloaded list to avoid breaking current execution
+            reloaded_filtered = [m for m in reloaded if m != "lab_testing.server.tool_handlers"]
+            if reloaded_filtered:
+                logger.info(f"[{request_id}] 🔄 AUTO-RELOAD: Reloaded {len(reloaded_filtered)} module(s): {', '.join(reloaded_filtered)}")
+                print(f"[DEV MODE] 🔄 Auto-reloaded {len(reloaded_filtered)} module(s): {', '.join(reloaded_filtered)}", file=sys.stderr)
+            elif reloaded:
+                logger.debug(f"[{request_id}] Auto-reload: tool_handlers changed (will reload on next call)")
+            else:
+                logger.debug(f"[{request_id}] Auto-reload check: No modules changed")
+        except Exception as reload_error:
+            # Don't let auto-reload errors break tool execution
+            logger.warning(f"[{request_id}] Auto-reload error (non-fatal): {reload_error}")
+    
     try:
         # Device Management
         if name == "list_devices":
-            result = list_devices()
-            _record_tool_result(name, result, request_id, start_time)
-            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+            try:
+                result = list_devices()
+                _record_tool_result(name, result, request_id, start_time)
+                # Format as table for better readability
+                table_text = _format_devices_as_table(result)
+                logger.debug(f"[{request_id}] list_devices: formatted text length={len(table_text)}, preview={table_text[:100]}")
+                if not table_text or not table_text.strip():
+                    logger.error(f"[{request_id}] list_devices: formatted text is empty!")
+                    return [TextContent(type="text", text="Error: Device list formatting returned empty result")]
+                
+                # Ensure TextContent is created correctly
+                try:
+                    content = TextContent(type="text", text=table_text)
+                    logger.debug(f"[{request_id}] list_devices: TextContent created successfully, type={content.type}, text_length={len(content.text)}")
+                    return [content]
+                except Exception as e:
+                    logger.error(f"[{request_id}] list_devices: Failed to create TextContent: {e}", exc_info=True)
+                    # Fallback: return as JSON
+                    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+            except Exception as e:
+                logger.error(f"[{request_id}] list_devices: Unexpected error: {e}", exc_info=True)
+                # Return a safe error response
+                error_msg = f"Error listing devices: {str(e)}"
+                return [TextContent(type="text", text=json.dumps({"error": error_msg, "request_id": request_id}, indent=2))]
 
         if name == "test_device":
             device_id = arguments.get("device_id")
@@ -275,15 +543,80 @@ def handle_tool(
             scan_networks = arguments.get("scan_networks", True)
             test_configured_devices = arguments.get("test_configured_devices", True)
             max_hosts = arguments.get("max_hosts_per_network", 254)
-
+            quick_mode = arguments.get("quick_mode", False)
+            
+            # Get target network for display
+            from lab_testing.config import get_target_network
+            target_network = get_target_network()
+            
+            # Log the operation with target network info
+            mode_info = "Quick mode (no network scan)" if quick_mode else "Full scan mode"
+            logger.info(f"[{request_id}] Creating network map - Target: {target_network}, Mode: {mode_info}")
+            
+            # Create network map by scanning the network
             network_map = create_network_map(
-                networks, scan_networks, test_configured_devices, max_hosts
+                networks, scan_networks, test_configured_devices, max_hosts, quick_mode
             )
+            
+            # Generate PNG image visualization (primary)
+            image_base64 = generate_network_map_image(network_map, output_path=None)
+            
+            # Generate Mermaid diagram (as fallback/text representation)
+            mermaid_diagram = generate_network_map_mermaid(network_map)
+            
+            # Generate text visualization (for detailed info)
             visualization = generate_network_map_visualization(network_map, format="text")
-
-            result = {"network_map": network_map, "visualization": visualization}
+            
+            # Combine all visualizations in the result
+            result = {
+                "network_map": network_map, 
+                "visualization": visualization,
+                "mermaid_diagram": mermaid_diagram,
+                "image_base64": image_base64[:50] + "..." if image_base64 else None
+            }
             _record_tool_result(name, result, request_id, start_time)
-            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+            
+            # Return PNG image as primary visualization
+            contents = []
+            if image_base64:
+                try:
+                    # Return image as ImageContent
+                    contents.append(ImageContent(
+                        type="image",
+                        data=image_base64,
+                        mimeType="image/png"
+                    ))
+                except Exception as e:
+                    logger.warning(f"Failed to create ImageContent: {e}, falling back to text")
+                    # Fallback: save to temp file and include path
+                    import tempfile
+                    import base64
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
+                        tmp.write(base64.b64decode(image_base64))
+                        tmp_path = tmp.name
+                    contents.append(TextContent(
+                        type="text",
+                        text=f"Network map image saved to: {tmp_path}\n\n{mermaid_diagram}"
+                    ))
+            else:
+                # Fallback to Mermaid if image generation failed
+                contents.append(TextContent(type="text", text=mermaid_diagram))
+            
+            # Add summary as separate content with target network info
+            summary = network_map.get("summary", {})
+            if summary:
+                mode_info = "Quick mode (no network scan)" if quick_mode else "Full scan mode"
+                summary_text = (
+                    f"\n\n---\n\n**Network Summary:**\n"
+                    f"- Target Network: {target_network}\n"
+                    f"- Mode: {mode_info}\n"
+                    f"- Total Devices: {summary.get('total_configured_devices', 0)}\n"
+                    f"- Online: {summary.get('online_devices', 0)}\n"
+                    f"- Offline: {summary.get('offline_devices', 0)}\n"
+                )
+                contents.append(TextContent(type="text", text=summary_text))
+            
+            return contents
 
         # Device Verification
         if name == "verify_device_identity":
@@ -366,7 +699,9 @@ def handle_tool(
         if name == "list_tasmota_devices":
             result = list_tasmota_devices()
             _record_tool_result(name, result, request_id, start_time)
-            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+            # Format as table for better readability
+            table_text = _format_tasmota_devices_as_table(result)
+            return [TextContent(type="text", text=table_text)]
 
         if name == "power_cycle_device":
             device_id = arguments.get("device_id")
@@ -408,6 +743,40 @@ def handle_tool(
 
             _record_tool_result(name, result, request_id, start_time)
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        # Device Management - Friendly Name Update
+        if name == "update_device_friendly_name":
+            from lab_testing.utils.device_cache import update_cached_friendly_name
+            
+            ip = arguments.get("ip")
+            friendly_name = arguments.get("friendly_name")
+            
+            if not ip or not friendly_name:
+                error_msg = "Both 'ip' and 'friendly_name' are required"
+                logger.error(f"[{request_id}] {error_msg}")
+                _record_tool_result(name, {"success": False, "error": error_msg}, request_id, start_time)
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+            
+            try:
+                success = update_cached_friendly_name(ip, friendly_name)
+                if success:
+                    result = {
+                        "success": True,
+                        "message": f"Updated friendly name for {ip} to '{friendly_name}'",
+                        "ip": ip,
+                        "friendly_name": friendly_name,
+                    }
+                    _record_tool_result(name, result, request_id, start_time)
+                    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+                else:
+                    error_msg = f"Device {ip} not found in cache. Run 'list_devices' first to discover and cache the device."
+                    _record_tool_result(name, {"success": False, "error": error_msg}, request_id, start_time)
+                    return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+            except Exception as e:
+                error_msg = f"Failed to update friendly name: {e!s}"
+                logger.error(f"[{request_id}] {error_msg}", exc_info=True)
+                _record_tool_result(name, {"success": False, "error": error_msg}, request_id, start_time)
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
 
         # OTA Management
         if name == "check_ota_status":

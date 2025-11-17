@@ -288,7 +288,7 @@ def get_ssh_command(
             "-o",
             "ConnectTimeout=10",
             "-o",
-            "StrictHostKeyChecking=no",
+            "StrictHostKeyChecking=accept-new",
             f"{username}@{device_ip}",
             command,
         ]
@@ -303,7 +303,7 @@ def get_ssh_command(
                 cred["password"],
                 "ssh",
                 "-o",
-                "StrictHostKeyChecking=no",
+                "StrictHostKeyChecking=accept-new",
                 "-o",
                 "ConnectTimeout=10",
                 f"{username}@{device_ip}",
@@ -316,7 +316,7 @@ def get_ssh_command(
         "-o",
         "ConnectTimeout=10",
         "-o",
-        "StrictHostKeyChecking=no",
+        "StrictHostKeyChecking=accept-new",
         f"{username}@{device_ip}",
         command,
     ]

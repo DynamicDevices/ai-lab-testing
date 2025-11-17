@@ -15,7 +15,7 @@ import json
 import sys
 import time
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 # MCP SDK imports
 # Note: MCP SDK structure may vary - adjust imports based on actual SDK version
@@ -59,6 +59,13 @@ except ImportError:
 setup_logger()
 logger = get_logger()
 
+# Development mode: Set up auto-reload
+try:
+    from lab_testing.server.dev_reload import setup_auto_reload
+    setup_auto_reload()
+except ImportError:
+    pass  # dev_reload module not available
+
 # Initialize MCP server
 server = Server("ai-lab-testing-mcp")
 
@@ -82,7 +89,7 @@ async def handle_list_tools() -> List[Tool]:
 
 
 @server.call_tool()
-async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
+async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> List[Union[TextContent, ImageContent]]:
     """Handle tool execution requests"""
     request_id = str(uuid.uuid4())[:8]
     start_time = time.time()

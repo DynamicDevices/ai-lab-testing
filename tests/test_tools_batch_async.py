@@ -72,7 +72,7 @@ class TestGetDeviceGroups:
     def test_get_device_groups_error(self, mock_open, mock_config):
         """Test error handling in get_device_groups"""
         mock_config.return_value = Mock()
-        mock_open.side_effect = IOError("File not found")
+        mock_open.side_effect = OSError("File not found")
 
         result = get_device_groups()
 

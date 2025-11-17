@@ -2,6 +2,33 @@
 
 [Semantic Versioning](https://semver.org/)
 
+## [0.3.0] - 2025-11-17
+
+### Added
+- **Tasmota Power State Display**: Tasmota devices now show power state (ON/OFF) and power consumption (Watts) in the device list
+- **Enhanced Device Detection**: Automatic detection of Tasmota devices and test equipment (DMMs) via network protocols
+- **Device Type Detection**: Improved device type inference from hostname patterns (eink, sentai boards)
+- **SSH Status Display**: Device list now shows detailed SSH connection status (OK, Timeout, Refused, Auth Failed)
+- **Firmware Version Display**: Device list displays firmware version information from `/etc/os-release`
+- **VPN Discovery Indicator**: Devices discovered over VPN are marked with a VPN indicator
+- **Device Cache System**: JSON-based caching of device information (hostname, unique ID, firmware) to reduce repeated SSH queries
+- **Friendly Name Management**: Ability to update friendly names for discovered devices via `update_device_friendly_name` tool
+- **Parallel Device Identification**: Optimized device discovery with parallel SSH identification attempts
+
+### Fixed
+- **Tasmota Detection Bug**: Fixed timeout parameter in Tasmota HTTP API detection (was incorrectly passed to Request instead of urlopen)
+- **SSH Authentication**: Fixed credential caching to use correct function signature (username/password parameters)
+- **SSH Error Handling**: Fixed cache to re-verify devices with SSH errors but no hostname instead of returning stale errors
+- **Cache Race Conditions**: Fixed cache merge logic to preserve successful identifications and prevent failures from overwriting successes
+- **Host Key Verification**: Improved SSH host key handling with `StrictHostKeyChecking=accept-new` for new/changed host keys
+- **Device Type Detection**: Fixed device type detection to properly use cached Tasmota/test equipment detection results
+- **Cache Persistence**: Tasmota and test equipment detection results are now properly saved to persistent cache
+
+### Changed
+- **Device List Format**: Device list now displays as a markdown table with improved readability
+- **Device Discovery**: Optimized device discovery to check all devices for Tasmota/test equipment detection, not just uncached ones
+- **SSH Credential Priority**: SSH authentication now prioritizes "fio" user over "root" for device identification
+
 ## [0.2.0] - 2025-11-16
 
 ### Changed

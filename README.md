@@ -7,7 +7,7 @@
 
 MCP server exposing remote embedded hardware testing capabilities to AI assistants.
 
-**Version**: 0.2.0
+**Version**: 0.3.0
 
 > **⚠️ ALPHA QUALITY WARNING**: This package is currently in **alpha** development status. It is **not ready for professional or production use**. The API may change, features may be incomplete, and there may be bugs. Use at your own risk. See [PUBLISHING.md](PUBLISHING.md) for more details.
 
@@ -41,6 +41,8 @@ python3.10 lab_testing/test_server.py
 
 ## Configuration
 
+### MCP Server Configuration
+
 Add to Cursor MCP config (`~/.cursor/mcp.json`):
 
 ```json
@@ -59,6 +61,46 @@ Add to Cursor MCP config (`~/.cursor/mcp.json`):
 ```
 
 **Important:** Use `python3.10` (or `python3.11+`) since MCP SDK requires Python 3.10+.
+
+### Target Network Configuration
+
+Configure the target network for lab testing operations:
+
+**Option 1: Environment Variable** (in `~/.cursor/mcp.json`):
+```json
+{
+  "mcpServers": {
+    "ai-lab-testing": {
+      "command": "python3.10",
+      "args": ["/path/to/ai-lab-testing/lab_testing/server.py"],
+      "env": {
+        "LAB_TESTING_ROOT": "/path/to/ai-lab-testing",
+        "TARGET_NETWORK": "192.168.2.0/24"
+      }
+    }
+  }
+}
+```
+
+**Option 2: Config File** (in `lab_devices.json`):
+```json
+{
+  "lab_infrastructure": {
+    "network_access": {
+      "target_network": "192.168.2.0/24",
+      "lab_networks": ["192.168.2.0/24"]
+    }
+  }
+}
+```
+
+**Default**: `192.168.2.0/24` if not configured.
+
+### Tool Timeouts
+
+Some tools like `create_network_map` may take longer than 30 seconds for full network scans. If tool calls timeout:
+- Use `quick_mode: true` to skip network scanning (completes in <5s)
+- Network scanning has been optimized with faster timeouts and increased parallelism
 
 ### VPN Setup
 
