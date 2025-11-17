@@ -17,8 +17,33 @@ def get_all_tools() -> List[Tool]:
     return [
         Tool(
             name="list_devices",
-            description="List all configured lab devices with their status",
-            inputSchema={"type": "object", "properties": {}, "required": []},
+            description=(
+                "List all devices on the target network with their status, firmware, and relationships. "
+                "Supports filtering by type, status, and search queries. Includes summary statistics."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_type_filter": {
+                        "type": "string",
+                        "description": "Filter by device type (e.g., 'tasmota_device', 'eink_board', 'test_equipment', 'sentai_board')",
+                    },
+                    "status_filter": {
+                        "type": "string",
+                        "description": "Filter by status (e.g., 'online', 'offline', 'discovered')",
+                    },
+                    "search_query": {
+                        "type": "string",
+                        "description": "Search by IP address, hostname, friendly name, or device ID (case-insensitive)",
+                    },
+                    "show_summary": {
+                        "type": "boolean",
+                        "description": "Include summary statistics (counts by type/status) in response (default: true)",
+                        "default": True,
+                    },
+                },
+                "required": [],
+            },
         ),
         Tool(
             name="test_device",
@@ -290,6 +315,29 @@ def get_all_tools() -> List[Tool]:
             name="list_tasmota_devices",
             description="List all configured Tasmota devices and the devices they control",
             inputSchema={"type": "object", "properties": {}, "required": []},
+        ),
+        Tool(
+            name="list_test_equipment",
+            description="List all test equipment devices (DMM, oscilloscopes, etc.) found on the network. Includes both configured devices and auto-discovered devices.",
+            inputSchema={"type": "object", "properties": {}, "required": []},
+        ),
+        Tool(
+            name="query_test_equipment",
+            description="Send a SCPI command to test equipment (DMM, etc.) and get the response. Common commands: *IDN? (identify), MEAS:VOLT:DC? (measure DC voltage), MEAS:CURR:DC? (measure DC current)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id_or_ip": {
+                        "type": "string",
+                        "description": "Device ID from config or IP address of the test equipment",
+                    },
+                    "scpi_command": {
+                        "type": "string",
+                        "description": "SCPI command to send (e.g., '*IDN?', 'MEAS:VOLT:DC?')",
+                    },
+                },
+                "required": ["device_id_or_ip", "scpi_command"],
+            },
         ),
         Tool(
             name="power_cycle_device",

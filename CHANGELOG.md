@@ -2,6 +2,30 @@
 
 [Semantic Versioning](https://semver.org/)
 
+## [0.4.0] - 2025-11-17
+
+### Added
+- **Device List Summary Display**: `list_devices` now returns a brief summary first (always visible without expanding) followed by the full detailed table
+- **Device Filtering**: `list_devices` supports filtering by `device_type_filter`, `status_filter`, and `search_query` for quick device discovery
+- **Summary Statistics**: Device list includes summary statistics showing counts by type, status, and SSH status
+- **Test Equipment Detection**: Automatic detection of test equipment (DMMs, oscilloscopes) via SCPI protocol on common ports (5025, 5024, 3490, 3491)
+- **Test Equipment Tools**: New `list_test_equipment` and `query_test_equipment` tools for managing and querying test equipment with SCPI commands
+- **Last Seen Timestamps**: Device list displays "Last Seen" timestamps showing when each device was last successfully identified
+- **Power Switch Relationships**: Device list shows which power switch (Tasmota device) controls each device
+- **Friendly Name Management**: `update_device_friendly_name` tool to update friendly names for discovered devices in cache
+
+### Fixed
+- **Device List Visibility**: Fixed device list display in Cursor by returning brief summary as separate TextContent item (always visible)
+- **Cache Thread Safety**: Improved cache operations with atomic file writes and thread-safe locking to prevent race conditions during parallel device discovery
+- **Cache Corruption**: Fixed cache corruption issues by using temporary files and `os.replace` for atomic writes
+- **Tasmota Detection Persistence**: Fixed Tasmota detection results being overwritten by ensuring proper cache merging
+
+### Changed
+- **Device Discovery Optimization**: Further optimized device discovery with parallel SSH identification for uncached devices
+- **SSH User Priority**: SSH authentication now prioritizes "fio" user, then "root" for device identification
+- **Device List Format**: Enhanced device list with additional columns (Last Seen, Power Switch) and improved formatting
+- **Help Documentation**: Updated help documentation with new features, workflows, and best practices
+
 ## [0.3.0] - 2025-11-17
 
 ### Added

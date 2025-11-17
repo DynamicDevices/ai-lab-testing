@@ -7,7 +7,7 @@
 
 MCP server exposing remote embedded hardware testing capabilities to AI assistants.
 
-**Version**: 0.3.0
+**Version**: 0.4.0
 
 > **⚠️ ALPHA QUALITY WARNING**: This package is currently in **alpha** development status. It is **not ready for professional or production use**. The API may change, features may be incomplete, and there may be bugs. Use at your own risk. See [PUBLISHING.md](PUBLISHING.md) for more details.
 
@@ -146,17 +146,18 @@ Data flow: AI → MCP Server → Tools → Lab Framework → Hardware
 
 ## Tools
 
-- **Device**: `list_devices`, `test_device`, `ssh_to_device`
+- **Device**: `list_devices` (with filtering, summary stats, power state), `test_device`, `ssh_to_device`, `verify_device_identity`, `verify_device_by_ip`, `update_device_ip`, `update_device_friendly_name`
 - **VPN**: `vpn_status`, `connect_vpn`, `disconnect_vpn`
 - **Power**: `start_power_monitoring` (DMM or Tasmota), `get_power_logs`, `analyze_power_logs`, `monitor_low_power`, `compare_power_profiles` - Power monitoring via DMM (SCPI) or Tasmota energy monitoring
-- **Tasmota**: `tasmota_control`, `list_tasmota_devices`, `power_cycle_device` - Power cycle devices via Tasmota switches
+- **Tasmota**: `tasmota_control`, `list_tasmota_devices`, `power_cycle_device` - Power cycle devices via Tasmota switches. Tasmota devices show power state (ON/OFF) and consumption (Watts) in device list
+- **Test Equipment**: `list_test_equipment`, `query_test_equipment` - Auto-detect and query test equipment (DMM, oscilloscopes) via SCPI protocol
 - **OTA/Containers**: `check_ota_status`, `trigger_ota_update`, `list_containers`, `deploy_container`, `get_system_status`, `get_firmware_version`, `get_foundries_registration_status`, `get_secure_boot_status`, `get_device_identity`
 - **Process Management**: `kill_stale_processes` - Kill duplicate processes that might interfere
 - **Remote Access**: `create_ssh_tunnel`, `list_ssh_tunnels`, `close_ssh_tunnel`, `access_serial_port`, `list_serial_devices` - SSH tunnels and serial port access
 - **Change Tracking**: `get_change_history`, `revert_changes` - Track and revert changes for security/debugging
 - **Batch/Regression**: `batch_operation`, `regression_test`, `get_device_groups`
 - **Network Mapping**: `create_network_map` - Visual map of network with device type, uptime, friendly names, power switches
-- **Device Verification**: `verify_device_identity`, `verify_device_by_ip`, `update_device_ip` - Verify device identity in DHCP environments
+- **Device Verification**: `verify_device_identity`, `verify_device_by_ip`, `update_device_ip` - Verify device identity in DHCP environments. Device list shows SSH status, last seen timestamps, and power switch relationships
 - **Help**: `help` - Get usage documentation and examples
 
 ## Resources

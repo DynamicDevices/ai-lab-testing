@@ -12,7 +12,7 @@ def get_help_content() -> Dict[str, Any]:
     """Get comprehensive help documentation"""
     return {
         "overview": "MCP server for remote embedded hardware testing in lab environment",
-        "version": "0.1.0",
+        "version": "0.4.0",
         "usage": {
             "basic": "Ask AI assistant to use tools (e.g., 'List devices in the lab', 'Connect to VPN')",
             "examples": [
@@ -26,9 +26,13 @@ def get_help_content() -> Dict[str, Any]:
         },
         "tools": {
             "device_management": {
-                "list_devices": "List all configured lab devices with status, IPs, and types",
-                "test_device": "Test connectivity to a device (ping and SSH check)",
-                "ssh_to_device": "Execute SSH command on a device (requires device_id, command, optional username)",
+                "list_devices": "List all devices with status, IPs, types, firmware, SSH status, last seen, and power switches. Returns brief summary (always visible) then full table. Supports filtering by device_type_filter, status_filter, search_query. Includes summary statistics (counts by type/status/SSH status). Shows Tasmota power state/consumption and test equipment detection.",
+                "test_device": "Test connectivity to a device (ping and SSH check). Best practice: Use before running operations on devices. In DHCP environments, use verify_device_identity to ensure correct device.",
+                "ssh_to_device": "Execute SSH command on a device (requires device_id, command, optional username). Best practice: Test device connectivity first with test_device.",
+                "verify_device_identity": "Verify device identity at given IP matches expected device (important for DHCP). Updates IP in config if verified and changed.",
+                "verify_device_by_ip": "Identify which device (if any) is at a given IP address by checking hostname/unique ID.",
+                "update_device_ip": "Verify device identity and update IP address in config if device is verified and IP has changed (for DHCP environments).",
+                "update_device_friendly_name": "Update friendly name for a discovered device in the cache. Allows custom names when referencing devices.",
             },
             "vpn_management": {
                 "vpn_status": "Get current WireGuard VPN connection status",
@@ -41,7 +45,12 @@ def get_help_content() -> Dict[str, Any]:
             },
             "tasmota_control": {
                 "tasmota_control": "Control Tasmota power switch (device_id, action: on|off|toggle|status|energy)",
-                "list_tasmota_devices": "List all configured Tasmota devices",
+                "list_tasmota_devices": "List all configured Tasmota devices and the devices they control",
+                "power_cycle_device": "Power cycle a device by controlling its Tasmota power switch (turns off, waits, then turns on). Optional: off_duration (default: 5 seconds).",
+            },
+            "test_equipment": {
+                "list_test_equipment": "List all test equipment devices (DMM, oscilloscopes, etc.) found on the network. Includes both configured devices and auto-discovered devices.",
+                "query_test_equipment": "Send a SCPI command to test equipment (DMM, etc.) and get the response. Common commands: *IDN? (identify), MEAS:VOLT:DC? (measure DC voltage), MEAS:CURR:DC? (measure DC current). Supports device_id from config or IP address.",
             },
             "ota_management": {
                 "check_ota_status": "Check Foundries.io OTA update status (device_id)",
@@ -62,7 +71,7 @@ def get_help_content() -> Dict[str, Any]:
             "power_analysis": {
                 "analyze_power_logs": "Analyze power logs for low power/suspend detection (test_name?, device_id?, threshold_mw?)",
                 "monitor_low_power": "Monitor device for low power consumption (device_id, duration?, threshold_mw?, sample_rate?)",
-                "compare_power_profiles": "Compare power consumption across test runs (test_names[], device_id?)",
+                "compare_power_profiles": "Compare power consumption across multiple test runs (test_names[], device_id?). Visualizes differences between test sessions.",
             },
         },
         "resources": {
@@ -81,8 +90,18 @@ def get_help_content() -> Dict[str, Any]:
         "common_workflows": {
             "check_lab_status": [
                 "1. Use 'vpn_status' to check VPN connection",
-                "2. Use 'list_devices' to see available devices",
-                "3. Use 'test_device' to verify connectivity",
+                "2. Use 'list_devices' to see available devices (shows brief summary first, then full table)",
+                "3. Filter devices: 'list_devices(device_type_filter=\"tasmota_device\")' or 'list_devices(status_filter=\"online\")'",
+                "4. Search devices: 'list_devices(search_query=\"192.168.2.18\")'",
+                "5. Use 'test_device' to verify connectivity",
+            ],
+            "device_discovery": [
+                "1. Devices are automatically discovered via network scanning",
+                "2. Tasmota devices detected via HTTP API (port 80)",
+                "3. Test equipment (DMM) detected via SCPI ports (5025, 5024, 3490, 3491)",
+                "4. Device information cached to speed up subsequent scans",
+                "5. Use 'list_devices' to see all discovered devices with their status",
+                "6. Update friendly names: 'update_device_friendly_name(ip, friendly_name)'",
             ],
             "remote_device_access": [
                 "1. Ensure VPN connected (use 'connect_vpn' if needed)",
@@ -121,9 +140,11 @@ def get_help_content() -> Dict[str, Any]:
         },
         "troubleshooting": {
             "vpn_not_connecting": "Check VPN config exists, may require NetworkManager or sudo",
-            "device_not_found": "Verify device_id in device inventory (use list_devices)",
-            "ssh_fails": "Check SSH keys configured, device online, VPN connected",
+            "device_not_found": "Verify device_id in device inventory (use list_devices). In DHCP environments, use verify_device_identity to ensure correct device.",
+            "ssh_fails": "Check SSH keys configured, device online, VPN connected. SSH authentication prioritizes 'fio' user, then 'root'. Check SSH status in device list.",
             "tools_fail": "Verify lab_testing_root path correct, underlying scripts work",
+            "device_list_not_visible": "Device list returns brief summary first (always visible), then full table. If not visible, restart MCP server connection.",
+            "cache_errors": "Device cache uses atomic writes and thread-safe locking. If errors occur, cache may be corrupted - clear cache directory and rescan.",
         },
         "best_practices": [
             "Always check VPN status before accessing lab devices",
@@ -135,6 +156,12 @@ def get_help_content() -> Dict[str, Any]:
             "For low power: set appropriate threshold_mw, monitor for sufficient duration",
             "For regression: organize devices by tags/groups, use batch operations",
             "Tag devices in config for easy rack management and grouping",
+            "Use list_devices filters to quickly find specific devices (type, status, search)",
+            "Device list shows brief summary first - always visible without expanding",
+            "In DHCP environments: verify device identity before operations, use update_device_ip if IP changed",
+            "Device discovery is optimized with parallel SSH identification and caching",
+            "Tasmota devices show power state and consumption in device list",
+            "Test equipment (DMM) can be queried with SCPI commands via query_test_equipment",
         ],
         "foundries_io_integration": {
             "device_config": "Add 'fio_factory', 'fio_target', 'fio_current' to device config",
