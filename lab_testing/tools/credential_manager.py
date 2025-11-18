@@ -233,7 +233,8 @@ def install_ssh_key_on_device(
             return {
                 "success": True,
                 "device_id": resolved_device_id,
-                "friendly_name": device.get("friendly_name") or device.get("name", resolved_device_id),
+                "friendly_name": device.get("friendly_name")
+                or device.get("name", resolved_device_id),
                 "ip": ip,
                 "username": username,
                 "key_already_installed": True,
@@ -256,20 +257,20 @@ def install_ssh_key_on_device(
             return {
                 "success": True,
                 "device_id": resolved_device_id,
-                "friendly_name": device.get("friendly_name") or device.get("name", resolved_device_id),
+                "friendly_name": device.get("friendly_name")
+                or device.get("name", resolved_device_id),
                 "ip": ip,
                 "username": username,
                 "key_installed": True,
                 "message": "SSH key installed successfully",
             }
-        else:
-            return {
-                "success": False,
-                "error": "Failed to install SSH key. Check password and device connectivity.",
-                "device_id": resolved_device_id,
-                "ip": ip,
-                "username": username,
-            }
+        return {
+            "success": False,
+            "error": "Failed to install SSH key. Check password and device connectivity.",
+            "device_id": resolved_device_id,
+            "ip": ip,
+            "username": username,
+        }
 
     except Exception as e:
         error_msg = f"Failed to install SSH key: {e!s}"
@@ -279,4 +280,3 @@ def install_ssh_key_on_device(
             "error": error_msg,
             "device_id": resolved_device_id,
         }
-

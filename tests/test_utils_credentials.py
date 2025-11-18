@@ -150,7 +150,10 @@ class TestCredentialCache:
         with patch("lab_testing.utils.credentials.CREDENTIAL_CACHE_FILE", cache_file):
             result = get_credential("nonexistent", "ssh")
 
-        assert result is None
+        # Now returns default credentials (fio/fio) for SSH if not found
+        assert result is not None
+        assert result["username"] == "fio"
+        assert result["password"] == "fio"
 
     def test_cache_credential(self, tmp_path, monkeypatch):
         """Test caching a credential"""

@@ -899,6 +899,7 @@ def ssh_to_device(
     # Determine username - check credentials first (including defaults)
     if not username:
         from lab_testing.utils.credentials import get_credential
+
         cred = get_credential(device_id, "ssh")
         if cred and cred.get("username"):
             username = cred["username"]
@@ -969,17 +970,18 @@ def ssh_to_device(
             result = subprocess.run(
                 ssh_cmd, check=False, capture_output=True, text=True, timeout=30
             )
-            
+
             # If SSH key auth failed, try password authentication
             if result.returncode != 0 and "Permission denied" in result.stderr:
                 logger.debug(f"SSH key auth failed for {device_id}, trying password authentication")
                 # Check if credentials are available (including defaults)
                 from lab_testing.utils.credentials import get_credential
+
                 cred = get_credential(device_id, "ssh")
                 if cred and cred.get("password"):
                     # Use password authentication
                     ssh_cmd = get_ssh_command(ip, username, command, device_id, use_password=True)
-                    
+
                     # Add port if not default
                     if ssh_port != 22:
                         # Find username@ip in command
@@ -988,7 +990,7 @@ def ssh_to_device(
                                 ssh_cmd.insert(i, "-p")
                                 ssh_cmd.insert(i + 1, str(ssh_port))
                                 break
-                    
+
                     result = subprocess.run(
                         ssh_cmd, check=False, capture_output=True, text=True, timeout=30
                     )

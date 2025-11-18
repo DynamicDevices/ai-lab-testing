@@ -65,18 +65,15 @@ def get_credential(device_id: str, credential_type: str = "ssh") -> Optional[Dic
     """
     credentials = load_credentials()
     key = f"{device_id}:{credential_type}"
-    
+
     # Check cached credentials first
     if key in credentials:
         return credentials.get(key)
-    
+
     # Fall back to default credentials (fio/fio) for SSH
     if credential_type == "ssh":
-        return {
-            "username": "fio",
-            "password": "fio"
-        }
-    
+        return {"username": "fio", "password": "fio"}
+
     return None
 
 
