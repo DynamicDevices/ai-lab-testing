@@ -51,16 +51,18 @@
 - ✅ Test single file copy (to/from device) - **DONE** (see docs/P1_FILE_TRANSFER_TESTING.md)
 - ✅ Test parallel file transfers - **DONE**
 - ⚠️ Test directory sync (requires rsync on device) - **PARTIAL** (rsync check added)
-- [ ] Test with large files (>100MB)
-- [ ] Test with many files (100+ files)
+- ⚠️ Test with large files (>100MB) - **DONE** (see docs/P1_FILE_TRANSFER_SCALE_TESTING.md) - Timeout issue noted (60s too short for slow links)
+- ✅ Test with many files (100+ files) - **DONE** (see docs/P1_FILE_TRANSFER_SCALE_TESTING.md) - Successfully tested 100 and 200 files
 - ✅ Test error handling (device offline, disk full, permission denied) - **DONE** (see docs/P1_FILE_TRANSFER_ERROR_HANDLING_TESTING.md)
-- [ ] Test compression effectiveness on slow links
+- ✅ Test compression effectiveness on slow links - **DONE** (see docs/P1_FILE_TRANSFER_SCALE_TESTING.md) - Mixed file types tested successfully
 - ✅ Test multiplexed SSH connection reuse - **DONE** (4.33x speedup confirmed, see docs/P1_FILE_TRANSFER_ERROR_HANDLING_TESTING.md)
 
 **Known Limitations:**
 - `sync_directory_to_device` requires rsync installed on remote device
 - Many embedded Linux devices don't have rsync by default
 - Workaround: Use `copy_files_to_device_parallel` for multiple files
+- Large file transfers (>50MB) may timeout on slow VPN links (60s timeout)
+- Workaround: Split large files or increase timeout (future enhancement: dynamic timeout)
 
 ---
 

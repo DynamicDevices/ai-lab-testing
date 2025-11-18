@@ -27,6 +27,7 @@ Uses existing lab testing framework:
 
 - `LAB_TESTING_ROOT`: Path to lab testing framework (default: `/data_drive/esl/ai-lab-testing`)
 - `VPN_CONFIG_PATH`: Path to WireGuard config file (optional, auto-detected if not set)
+- `FOUNDRIES_VPN_CONFIG_PATH`: Path to Foundries VPN config file (optional, auto-detected if not set)
 - `TARGET_NETWORK`: Target network for lab testing operations (default: `192.168.2.0/24`)
 - `MCP_DEV_MODE`: Enable development mode with auto-reload (set to `1`, `true`, or `yes` to enable)
 
@@ -67,6 +68,12 @@ The server automatically searches for WireGuard configs in:
 - `vpn_setup_instructions` - Get setup help
 - `create_vpn_config_template` - Create a config template
 - `check_wireguard_installed` - Check if WireGuard is installed
+
+**Foundries VPN?** See [Foundries VPN Setup Guide](FOUNDRIES_VPN_SETUP.md) for Foundries VPN setup. Foundries VPN configs are searched in:
+1. `FOUNDRIES_VPN_CONFIG_PATH` environment variable (if set)
+2. `{LAB_TESTING_ROOT}/secrets/foundries-vpn.conf` or `foundries.conf`
+3. `~/.config/wireguard/foundries.conf`
+4. `/etc/wireguard/foundries.conf`
 
 ## Cursor Integration
 

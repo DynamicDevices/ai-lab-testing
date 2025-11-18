@@ -33,7 +33,10 @@ The MCP server provides intelligent tooling that guides engineers through best p
 
 ## Installation
 
-**Requirements: Python 3.10+** (MCP SDK requires Python 3.10+)
+**Requirements:**
+- **Python 3.10+** (MCP SDK requires Python 3.10+)
+- **WireGuard tools** (for VPN features) - See [VPN Setup Guide](docs/VPN_SETUP.md)
+- **fioctl CLI tool** (optional, for Foundries VPN features) - See [Foundries VPN Setup](docs/FOUNDRIES_VPN_SETUP.md)
 
 ### From PyPI (Recommended)
 
