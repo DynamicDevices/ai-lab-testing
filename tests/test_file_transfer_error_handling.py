@@ -93,7 +93,9 @@ class TestFileTransferErrorHandling:
     @patch("lab_testing.tools.file_transfer.resolve_device_identifier")
     @patch("lab_testing.tools.file_transfer.load_device_config")
     @patch("lab_testing.tools.file_transfer.subprocess.run")
-    def test_copy_file_to_device_permission_denied(self, mock_subprocess, mock_config, mock_resolve):
+    def test_copy_file_to_device_permission_denied(
+        self, mock_subprocess, mock_config, mock_resolve
+    ):
         """Test error handling when permission is denied"""
         mock_resolve.return_value = "test_device"
         mock_config.return_value = {
@@ -101,9 +103,7 @@ class TestFileTransferErrorHandling:
         }
 
         # Mock scp failure (permission denied)
-        mock_subprocess.return_value = Mock(
-            returncode=1, stdout=b"", stderr=b"Permission denied"
-        )
+        mock_subprocess.return_value = Mock(returncode=1, stdout=b"", stderr=b"Permission denied")
 
         with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
             tmpfile.write(b"test content")
@@ -160,7 +160,9 @@ class TestFileTransferErrorHandling:
     @patch("lab_testing.tools.file_transfer.resolve_device_identifier")
     @patch("lab_testing.tools.file_transfer.load_device_config")
     @patch("lab_testing.tools.file_transfer.subprocess.run")
-    def test_copy_file_from_device_remote_not_found(self, mock_subprocess, mock_config, mock_resolve):
+    def test_copy_file_from_device_remote_not_found(
+        self, mock_subprocess, mock_config, mock_resolve
+    ):
         """Test error handling when remote file doesn't exist"""
         mock_resolve.return_value = "test_device"
         mock_config.return_value = {
@@ -191,7 +193,10 @@ class TestFileTransferErrorHandling:
         result = copy_files_to_device_parallel("test_device", [])
 
         assert result["success"] is False
-        assert "empty" in result.get("error", "").lower() or "no files" in result.get("error", "").lower()
+        assert (
+            "empty" in result.get("error", "").lower()
+            or "no files" in result.get("error", "").lower()
+        )
 
     @patch("lab_testing.tools.file_transfer.resolve_device_identifier")
     @patch("lab_testing.tools.file_transfer.load_device_config")
@@ -352,4 +357,3 @@ class TestMultiplexedConnectionReuse:
             assert len(scp_calls) >= 1
         finally:
             Path(tmpfile_path).unlink()
-

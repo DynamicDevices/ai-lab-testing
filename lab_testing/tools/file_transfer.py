@@ -35,19 +35,19 @@ def _extract_scp_error(stderr_text: str) -> str:
     """
     if not stderr_text:
         return "Unknown error"
-    
+
     # Split into lines and filter out empty lines
     error_lines = [line.strip() for line in stderr_text.split("\n") if line.strip()]
-    
+
     # Look for actual error lines (usually start with "scp:" or "ssh:")
     for line in reversed(error_lines):  # Check from end (most recent)
         if line.startswith("scp:") or line.startswith("ssh:"):
             return line
-    
+
     # If no scp/ssh prefix found, use the last non-empty line
     if error_lines:
         return error_lines[-1]
-    
+
     return "Unknown error"
 
 

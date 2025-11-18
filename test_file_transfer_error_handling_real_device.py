@@ -9,16 +9,16 @@ Copyright (C) 2025 Dynamic Devices Ltd
 License: GPL-3.0-or-later
 """
 
-import time
 import tempfile
+import time
 from pathlib import Path
 
+from lab_testing.tools.device_manager import test_device
 from lab_testing.tools.file_transfer import (
     copy_file_from_device,
     copy_file_to_device,
     copy_files_to_device_parallel,
 )
-from lab_testing.tools.device_manager import test_device
 
 
 def test_error_handling():
@@ -55,7 +55,7 @@ def test_error_handling():
     # Test 3: Permission denied (try to write to readonly location)
     print("Test 3: Permission denied (readonly location)")
     print("-" * 70)
-    with tempfile.NamedTemporaryFile(delete=False, mode='w') as tmpfile:
+    with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmpfile:
         tmpfile.write("Test content")
         tmpfile_path = tmpfile.name
 
@@ -116,7 +116,7 @@ def test_multiplexed_connection_reuse():
     # Create test files
     test_files = []
     for i in range(5):
-        with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=f'_{i}.txt') as tmpfile:
+        with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=f"_{i}.txt") as tmpfile:
             tmpfile.write(f"Test content for file {i}\n" * 10)
             test_files.append(tmpfile.name)
 
@@ -127,9 +127,7 @@ def test_multiplexed_connection_reuse():
         times = []
         for i, test_file in enumerate(test_files):
             start_time = time.time()
-            result = copy_file_to_device(
-                device_id, test_file, f"/tmp/test_sequential_{i}.txt"
-            )
+            result = copy_file_to_device(device_id, test_file, f"/tmp/test_sequential_{i}.txt")
             elapsed = time.time() - start_time
             times.append(elapsed)
 
@@ -144,7 +142,7 @@ def test_multiplexed_connection_reuse():
             print(f"  Subsequent transfers: {times[1:5]}")
             avg_subsequent = sum(times[1:]) / len(times[1:])
             print(f"  Average subsequent: {avg_subsequent:.3f}s")
-            
+
             if times[0] > avg_subsequent * 1.5:
                 print("  ✅ Connection reuse detected (first transfer slower)")
             else:
@@ -154,9 +152,7 @@ def test_multiplexed_connection_reuse():
         # Test 2: Parallel transfers (should share connection)
         print("Test 2: Parallel transfers (shared connection)")
         print("-" * 70)
-        file_pairs = [
-            [test_files[i], f"/tmp/test_parallel_{i}.txt"] for i in range(5)
-        ]
+        file_pairs = [[test_files[i], f"/tmp/test_parallel_{i}.txt"] for i in range(5)]
 
         start_time = time.time()
         result = copy_files_to_device_parallel(device_id, file_pairs, max_workers=5)
@@ -167,14 +163,14 @@ def test_multiplexed_connection_reuse():
             print(f"  Files transferred: {result.get('files_transferred', 0)}")
             print(f"  Total time: {parallel_time:.3f}s")
             print(f"  Average per file: {parallel_time/5:.3f}s")
-            
+
             # Compare with sequential
             sequential_total = sum(times)
             print(f"\n  Sequential total: {sequential_total:.3f}s")
             print(f"  Parallel total: {parallel_time:.3f}s")
             speedup = sequential_total / parallel_time if parallel_time > 0 else 0
             print(f"  Speedup: {speedup:.2f}x")
-            
+
             if speedup > 1.2:
                 print("  ✅ Parallel transfers faster (connection sharing working)")
             else:
@@ -202,7 +198,7 @@ def test_multiplexed_connection_reuse():
 
         print(f"  Upload: {upload_time:.3f}s {'✅' if upload_result['success'] else '❌'}")
         print(f"  Download: {download_time:.3f}s {'✅' if download_result['success'] else '❌'}")
-        
+
         if upload_result["success"] and download_result["success"]:
             print("  ✅ Mixed operations successful")
         print()
@@ -234,6 +230,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Test failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -242,4 +239,3 @@ def main():
 
 if __name__ == "__main__":
     exit(main())
-
