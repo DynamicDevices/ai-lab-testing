@@ -6,7 +6,7 @@ install:
 	pre-commit install
 
 test:
-	python3 -m pytest tests/ -v
+	python3.10 -m pytest tests/ -v
 
 lint:
 	ruff check .
