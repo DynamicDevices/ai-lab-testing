@@ -66,7 +66,7 @@ def cache_device_credentials(
         ]
         if credential_type == "ssh":
             next_steps.append("Then enable passwordless sudo: enable_passwordless_sudo(device_id)")
-        
+
         return {
             "success": True,
             "device_id": resolved_device_id,
@@ -154,7 +154,7 @@ def check_ssh_key_status(device_id: str, username: Optional[str] = None) -> Dict
             if key_installed
             else "SSH key authentication is not working (use install_ssh_key to install)"
         )
-        
+
         next_steps = []
         if not key_installed:
             next_steps = [
@@ -166,7 +166,7 @@ def check_ssh_key_status(device_id: str, username: Optional[str] = None) -> Dict
                 "SSH key is working - you can use ssh_to_device without password",
                 "Consider enabling passwordless sudo: enable_passwordless_sudo(device_id)",
             ]
-        
+
         return {
             "success": True,
             "device_id": resolved_device_id,

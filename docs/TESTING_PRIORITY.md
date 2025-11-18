@@ -53,9 +53,9 @@
 - ⚠️ Test directory sync (requires rsync on device) - **PARTIAL** (rsync check added)
 - [ ] Test with large files (>100MB)
 - [ ] Test with many files (100+ files)
-- [ ] Test error handling (device offline, disk full, permission denied)
+- ✅ Test error handling (device offline, disk full, permission denied) - **DONE** (see docs/P1_FILE_TRANSFER_ERROR_HANDLING_TESTING.md)
 - [ ] Test compression effectiveness on slow links
-- [ ] Test multiplexed SSH connection reuse
+- ✅ Test multiplexed SSH connection reuse - **DONE** (4.33x speedup confirmed, see docs/P1_FILE_TRANSFER_ERROR_HANDLING_TESTING.md)
 
 **Known Limitations:**
 - `sync_directory_to_device` requires rsync installed on remote device

@@ -307,7 +307,9 @@ def enable_passwordless_sudo(device_ip: str, username: str, password: Optional[s
     return False
 
 
-def disable_passwordless_sudo(device_ip: str, username: str, password: Optional[str] = None) -> bool:
+def disable_passwordless_sudo(
+    device_ip: str, username: str, password: Optional[str] = None
+) -> bool:
     """
     Disable passwordless sudo on target device (revert changes).
     Removes the sudoers.d file that was created by enable_passwordless_sudo.

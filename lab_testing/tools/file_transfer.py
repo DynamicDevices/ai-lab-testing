@@ -22,6 +22,35 @@ from lab_testing.utils.ssh_pool import get_persistent_ssh_connection
 logger = get_logger()
 
 
+def _extract_scp_error(stderr_text: str) -> str:
+    """
+    Extract the actual error message from scp/ssh stderr output.
+    Filters out banners/motd and returns the actual error line.
+
+    Args:
+        stderr_text: Raw stderr output from scp/ssh command
+
+    Returns:
+        Clean error message
+    """
+    if not stderr_text:
+        return "Unknown error"
+    
+    # Split into lines and filter out empty lines
+    error_lines = [line.strip() for line in stderr_text.split("\n") if line.strip()]
+    
+    # Look for actual error lines (usually start with "scp:" or "ssh:")
+    for line in reversed(error_lines):  # Check from end (most recent)
+        if line.startswith("scp:") or line.startswith("ssh:"):
+            return line
+    
+    # If no scp/ssh prefix found, use the last non-empty line
+    if error_lines:
+        return error_lines[-1]
+    
+    return "Unknown error"
+
+
 def copy_file_to_device(
     device_id: str,
     local_path: str,
@@ -110,10 +139,10 @@ def copy_file_to_device(
         # Get or create multiplexed SSH connection for faster transfers
         control_path = f"/tmp/ssh_mcp_{resolved_device_id}_{ip.replace('.', '_')}"
         master = get_persistent_ssh_connection(ip, username, resolved_device_id, ssh_port)
-        
+
         # Build scp command with ControlMaster for multiplexing
         scp_cmd = ["scp"]
-        
+
         if master and master.poll() is None:
             # Use existing multiplexed connection (much faster)
             scp_cmd.extend(["-o", f"ControlPath={control_path}"])
@@ -123,14 +152,14 @@ def copy_file_to_device(
             scp_cmd.extend(["-o", "StrictHostKeyChecking=no"])
             scp_cmd.extend(["-o", "BatchMode=yes"])
             logger.debug(f"Using direct SSH connection for {resolved_device_id}")
-        
+
         # Preserve permissions if requested
         if preserve_permissions:
             scp_cmd.append("-p")  # Preserve modification times, access times, and modes
-        
+
         # Add compression for faster transfers over slow links
         scp_cmd.append("-C")  # Enable compression
-        
+
         # Add source and destination
         scp_cmd.append(str(local_file))
         scp_cmd.append(f"{username}@{ip}:{remote_path}")
@@ -143,7 +172,8 @@ def copy_file_to_device(
             return {
                 "success": True,
                 "device_id": resolved_device_id,
-                "friendly_name": device.get("friendly_name") or device.get("name", resolved_device_id),
+                "friendly_name": device.get("friendly_name")
+                or device.get("name", resolved_device_id),
                 "ip": ip,
                 "local_path": str(local_path),
                 "remote_path": remote_path,
@@ -153,8 +183,9 @@ def copy_file_to_device(
                     f"Check file contents: ssh_to_device(device_id, 'cat {remote_path}')",
                 ],
             }
-        
-        error_msg = f"Failed to copy file: {result.stderr.strip() or 'Unknown error'}"
+
+        actual_error = _extract_scp_error(result.stderr.strip() if result.stderr else "")
+        error_msg = f"Failed to copy file: {actual_error}"
         logger.error(error_msg)
         return {
             "success": False,
@@ -259,10 +290,10 @@ def copy_file_from_device(
         # Get or create multiplexed SSH connection for faster transfers
         control_path = f"/tmp/ssh_mcp_{resolved_device_id}_{ip.replace('.', '_')}"
         master = get_persistent_ssh_connection(ip, username, resolved_device_id, ssh_port)
-        
+
         # Build scp command with ControlMaster for multiplexing
         scp_cmd = ["scp"]
-        
+
         if master and master.poll() is None:
             # Use existing multiplexed connection (much faster)
             scp_cmd.extend(["-o", f"ControlPath={control_path}"])
@@ -272,14 +303,14 @@ def copy_file_from_device(
             scp_cmd.extend(["-o", "StrictHostKeyChecking=no"])
             scp_cmd.extend(["-o", "BatchMode=yes"])
             logger.debug(f"Using direct SSH connection for {resolved_device_id}")
-        
+
         # Preserve permissions if requested
         if preserve_permissions:
             scp_cmd.append("-p")  # Preserve modification times, access times, and modes
-        
+
         # Add compression for faster transfers over slow links
         scp_cmd.append("-C")  # Enable compression
-        
+
         # Add source and destination
         scp_cmd.append(f"{username}@{ip}:{remote_path}")
         scp_cmd.append(str(local_file))
@@ -288,11 +319,14 @@ def copy_file_from_device(
         result = subprocess.run(scp_cmd, check=False, capture_output=True, text=True, timeout=60)
 
         if result.returncode == 0:
-            logger.info(f"Successfully copied {remote_path} from {resolved_device_id} to {local_path}")
+            logger.info(
+                f"Successfully copied {remote_path} from {resolved_device_id} to {local_path}"
+            )
             return {
                 "success": True,
                 "device_id": resolved_device_id,
-                "friendly_name": device.get("friendly_name") or device.get("name", resolved_device_id),
+                "friendly_name": device.get("friendly_name")
+                or device.get("name", resolved_device_id),
                 "ip": ip,
                 "remote_path": remote_path,
                 "local_path": str(local_file),
@@ -302,8 +336,9 @@ def copy_file_from_device(
                     f"Check file: cat {local_path}",
                 ],
             }
-        
-        error_msg = f"Failed to copy file: {result.stderr.strip() or 'Unknown error'}"
+
+        actual_error = _extract_scp_error(result.stderr.strip() if result.stderr else "")
+        error_msg = f"Failed to copy file: {actual_error}"
         logger.error(error_msg)
         return {
             "success": False,
@@ -425,9 +460,18 @@ def sync_directory_to_device(
 
     try:
         # Check if rsync is available on remote device
-        check_rsync_cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", 
-                          f"{username}@{ip}", "-p", str(ssh_port), "which rsync"]
-        rsync_check = subprocess.run(check_rsync_cmd, capture_output=True, timeout=10)
+        check_rsync_cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "BatchMode=yes",
+            f"{username}@{ip}",
+            "-p",
+            str(ssh_port),
+            "which rsync",
+        ]
+        rsync_check = subprocess.run(check_rsync_cmd, check=False, capture_output=True, timeout=10)
         if rsync_check.returncode != 0:
             error_msg = "rsync is not installed on the remote device"
             logger.error(error_msg)
@@ -444,11 +488,11 @@ def sync_directory_to_device(
                     "Check device package manager: ssh_to_device(device_id, 'which opkg || which apt || which yum')",
                 ],
             }
-        
+
         # Get or create multiplexed SSH connection for faster transfers
         control_path = f"/tmp/ssh_mcp_{resolved_device_id}_{ip.replace('.', '_')}"
         master = get_persistent_ssh_connection(ip, username, resolved_device_id, ssh_port)
-        
+
         # Build rsync command optimized for speed
         rsync_cmd = [
             "rsync",
@@ -456,7 +500,7 @@ def sync_directory_to_device(
             "--partial",  # Keep partial files for resume
             "--progress",  # Show progress
         ]
-        
+
         # Use multiplexed SSH connection if available
         if master and master.poll() is None:
             # Use existing multiplexed connection (much faster for multiple files)
@@ -464,21 +508,18 @@ def sync_directory_to_device(
             logger.debug(f"Using multiplexed SSH connection for rsync to {resolved_device_id}")
         else:
             # Fallback to direct connection
-            rsync_cmd.extend([
-                "-e",
-                "ssh -o StrictHostKeyChecking=no -o BatchMode=yes"
-            ])
+            rsync_cmd.extend(["-e", "ssh -o StrictHostKeyChecking=no -o BatchMode=yes"])
             logger.debug(f"Using direct SSH connection for rsync to {resolved_device_id}")
-        
+
         # Add exclude patterns
         if exclude:
             for pattern in exclude:
                 rsync_cmd.extend(["--exclude", pattern])
-        
+
         # Add delete flag
         if delete:
             rsync_cmd.append("--delete")
-        
+
         # Add source and destination (trailing slash ensures directory contents are synced)
         source = str(local_path)
         if not source.endswith("/"):
@@ -494,7 +535,8 @@ def sync_directory_to_device(
             return {
                 "success": True,
                 "device_id": resolved_device_id,
-                "friendly_name": device.get("friendly_name") or device.get("name", resolved_device_id),
+                "friendly_name": device.get("friendly_name")
+                or device.get("name", resolved_device_id),
                 "ip": ip,
                 "local_dir": str(local_path),
                 "remote_dir": remote_dir,
@@ -504,7 +546,7 @@ def sync_directory_to_device(
                     f"Check sync status: ssh_to_device(device_id, 'du -sh {remote_dir}')",
                 ],
             }
-        
+
         error_msg = f"Failed to sync directory: {result.stderr.strip() or 'Unknown error'}"
         logger.error(error_msg)
         return {
@@ -560,6 +602,27 @@ def copy_files_to_device_parallel(
     Returns:
         Dictionary with operation results including individual file results
     """
+    # Validate file_pairs
+    if not file_pairs:
+        error_msg = "No files to transfer (file_pairs is empty)"
+        logger.error(error_msg)
+        return {
+            "success": False,
+            "error": error_msg,
+            "device_id": device_id,
+        }
+
+    # Validate file_pairs format
+    for pair in file_pairs:
+        if not isinstance(pair, (list, tuple)) or len(pair) != 2:
+            error_msg = f"Invalid file pair format: {pair}. Expected [local_path, remote_path]"
+            logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "device_id": device_id,
+            }
+
     # Resolve to actual device_id
     resolved_device_id = resolve_device_identifier(device_id)
     if not resolved_device_id:
@@ -608,7 +671,7 @@ def copy_files_to_device_parallel(
     for local_path, _ in file_pairs:
         if not Path(local_path).exists():
             missing_files.append(local_path)
-    
+
     if missing_files:
         return {
             "success": False,
@@ -619,9 +682,11 @@ def copy_files_to_device_parallel(
     # Ensure multiplexed connection exists (shared by all transfers for maximum speed)
     control_path = f"/tmp/ssh_mcp_{resolved_device_id}_{ip.replace('.', '_')}"
     master = get_persistent_ssh_connection(ip, username, resolved_device_id, ssh_port)
-    
+
     if not master or master.poll() is not None:
-        logger.warning(f"Could not establish multiplexed connection for {resolved_device_id}, transfers will be slower")
+        logger.warning(
+            f"Could not establish multiplexed connection for {resolved_device_id}, transfers will be slower"
+        )
 
     # Copy files in parallel
     results = []
@@ -633,22 +698,24 @@ def copy_files_to_device_parallel(
         try:
             # Build scp command with multiplexed connection
             scp_cmd = ["scp"]
-            
+
             if master and master.poll() is None:
                 scp_cmd.extend(["-o", f"ControlPath={control_path}"])
             else:
                 scp_cmd.extend(["-o", "StrictHostKeyChecking=no"])
                 scp_cmd.extend(["-o", "BatchMode=yes"])
-            
+
             if preserve_permissions:
                 scp_cmd.append("-p")
-            
+
             scp_cmd.append("-C")  # Compression
             scp_cmd.append(str(local_path))
             scp_cmd.append(f"{username}@{ip}:{remote_path}")
 
-            result = subprocess.run(scp_cmd, check=False, capture_output=True, text=True, timeout=120)
-            
+            result = subprocess.run(
+                scp_cmd, check=False, capture_output=True, text=True, timeout=120
+            )
+
             return {
                 "local_path": local_path,
                 "remote_path": remote_path,
@@ -669,7 +736,7 @@ def copy_files_to_device_parallel(
             executor.submit(_copy_single_file, local_path, remote_path): (local_path, remote_path)
             for local_path, remote_path in file_pairs
         }
-        
+
         for future in as_completed(futures):
             result = future.result()
             results.append(result)
@@ -692,12 +759,15 @@ def copy_files_to_device_parallel(
         "failed": failed,
         "results": results,
         "message": f"Transferred {successful}/{len(file_pairs)} files successfully",
-        "next_steps": [
-            "Review individual file results in 'results' field",
-            "Verify files on device: ssh_to_device(device_id, 'ls -lh <remote_path>')",
-        ] if failed == 0 else [
-            "Some files failed to transfer - check 'results' field for details",
-            "Retry failed files individually: copy_file_to_device(device_id, local_path, remote_path)",
-        ],
+        "next_steps": (
+            [
+                "Review individual file results in 'results' field",
+                "Verify files on device: ssh_to_device(device_id, 'ls -lh <remote_path>')",
+            ]
+            if failed == 0
+            else [
+                "Some files failed to transfer - check 'results' field for details",
+                "Retry failed files individually: copy_file_to_device(device_id, local_path, remote_path)",
+            ]
+        ),
     }
-

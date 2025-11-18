@@ -45,12 +45,6 @@ from lab_testing.tools.credential_manager import (
     enable_passwordless_sudo_on_device,
     install_ssh_key_on_device,
 )
-from lab_testing.tools.file_transfer import (
-    copy_file_from_device,
-    copy_file_to_device,
-    copy_files_to_device_parallel,
-    sync_directory_to_device,
-)
 from lab_testing.tools.device_manager import (
     list_devices,
     ssh_to_device,
@@ -60,6 +54,12 @@ from lab_testing.tools.device_verification import (
     update_device_ip_if_changed,
     verify_device_by_ip,
     verify_device_identity,
+)
+from lab_testing.tools.file_transfer import (
+    copy_file_from_device,
+    copy_file_to_device,
+    copy_files_to_device_parallel,
+    sync_directory_to_device,
 )
 from lab_testing.tools.ota_manager import (
     check_ota_status,
