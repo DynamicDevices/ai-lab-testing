@@ -157,20 +157,33 @@ def detect_test_equipment(ip: str, timeout: float = 2.0) -> Optional[Dict[str, A
                                 # Infer device type from model/manufacturer
                                 model_lower = (parts[1] or "").lower()
                                 manufacturer_lower = (parts[0] or "").lower()
-                                
+
                                 # Known DMM model patterns (Keysight/Agilent 34461A, 34465A, etc.)
-                                dmm_patterns = ["dmm", "multimeter", "34461", "34465", "34470", "34401"]
+                                dmm_patterns = [
+                                    "dmm",
+                                    "multimeter",
+                                    "34461",
+                                    "34465",
+                                    "34470",
+                                    "34401",
+                                ]
                                 scope_patterns = ["scope", "oscilloscope", "dso", "mso"]
                                 power_supply_patterns = ["power", "supply", "psu"]
-                                
+
                                 if any(pattern in model_lower for pattern in dmm_patterns):
                                     device_info["equipment_type"] = "dmm"
                                 elif any(pattern in model_lower for pattern in scope_patterns):
                                     device_info["equipment_type"] = "oscilloscope"
-                                elif any(pattern in model_lower for pattern in power_supply_patterns) and "supply" in model_lower:
+                                elif (
+                                    any(pattern in model_lower for pattern in power_supply_patterns)
+                                    and "supply" in model_lower
+                                ):
                                     device_info["equipment_type"] = "power_supply"
                                 # Check manufacturer for Keysight/Agilent - they make DMMs
-                                elif "agilent" in manufacturer_lower or "keysight" in manufacturer_lower:
+                                elif (
+                                    "agilent" in manufacturer_lower
+                                    or "keysight" in manufacturer_lower
+                                ):
                                     # Keysight/Agilent test equipment - check if it's a known DMM model
                                     if "344" in model_lower or "3458" in model_lower:
                                         device_info["equipment_type"] = "dmm"

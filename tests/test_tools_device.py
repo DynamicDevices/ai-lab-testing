@@ -22,13 +22,44 @@ class TestListDevices:
     """Tests for list_devices"""
 
     @patch("lab_testing.tools.device_manager.load_device_config")
-    def test_list_devices_success(self, mock_load_config, sample_device_config):
+    @patch("lab_testing.tools.network_mapper._scan_network_range")
+    @patch("lab_testing.utils.device_cache.get_cached_device_info")
+    @patch("lab_testing.utils.device_cache.identify_and_cache_device")
+    @patch("lab_testing.tools.device_detection.detect_tasmota_device")
+    @patch("lab_testing.tools.device_detection.detect_test_equipment")
+    @patch("lab_testing.tools.vpn_manager.get_vpn_status")
+    @patch("lab_testing.config.get_target_network")
+    def test_list_devices_success(
+        self,
+        mock_target_network,
+        mock_load_config,
+        mock_scan,
+        mock_cache,
+        mock_identify,
+        mock_detect_tasmota,
+        mock_detect_test,
+        mock_vpn,
+        sample_device_config,
+    ):
         """Test successful device listing"""
         with open(sample_device_config) as f:
+            config_data = json.load(f)
             mock_load_config.return_value = {
-                "devices": json.load(f)["devices"],
-                "lab_infrastructure": {},
+                "devices": config_data["devices"],
+                "lab_infrastructure": config_data.get("lab_infrastructure", {}),
             }
+
+        # Mock target network to match sample config
+        mock_target_network.return_value = "192.168.1.0/24"
+        # Mock VPN status
+        mock_vpn.return_value = {"connected": False}
+        # Mock network scan to return empty list (no active hosts, test only uses configured devices)
+        mock_scan.return_value = []
+        # Mock cache to return empty (no cached devices)
+        mock_cache.return_value = None
+        # Mock detection to return None (no auto-detected devices)
+        mock_detect_tasmota.return_value = None
+        mock_detect_test.return_value = None
 
         result = list_devices()
 

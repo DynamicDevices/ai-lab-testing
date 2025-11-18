@@ -232,7 +232,7 @@ def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> 
         # Initialize variables
         hostname = None
         unique_id = None
-        
+
         # Get hostname from device
         # Use accept-new to handle host key changes gracefully
         # Try with password authentication if key-based fails
@@ -256,7 +256,7 @@ def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> 
             text=True,
             timeout=5,  # Reduced from 10 to 5 seconds
         )
-        
+
         # Track SSH errors
         if hostname_result.returncode != 0:
             stderr_lower = (hostname_result.stderr or "").lower()
@@ -272,10 +272,11 @@ def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> 
             else:
                 ssh_error_type = "connection_error"
                 ssh_error = f"SSH error ({username})"
-        
+
         # If BatchMode fails (no key), try with password auth from credentials
         if hostname_result.returncode != 0:
             from lab_testing.utils.credentials import get_credential, get_ssh_command
+
             # Try to get credentials using IP as device identifier
             cred = get_credential(ip, "ssh")
             if cred and cred.get("password"):
@@ -294,14 +295,16 @@ def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> 
                     # Timeout occurred - set error and continue
                     ssh_error_type = "timeout"
                     ssh_error = f"SSH timeout ({username})"
-                    hostname_result = type('obj', (object,), {'returncode': 1, 'stderr': 'timeout', 'stdout': ''})()
-                
+                    hostname_result = type(
+                        "obj", (object,), {"returncode": 1, "stderr": "timeout", "stdout": ""}
+                    )()
+
                 # Update error if password auth also fails
                 if hostname_result.returncode != 0:
                     stderr_lower = (hostname_result.stderr or "").lower()
                     stdout_lower = (hostname_result.stdout or "").lower()
                     combined_output = stderr_lower + " " + stdout_lower
-                    
+
                     # Check for timeout (may be in exception, not stderr)
                     if "timeout" in combined_output or "timed out" in combined_output:
                         ssh_error_type = "timeout"
@@ -309,7 +312,10 @@ def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> 
                     elif "connection refused" in combined_output:
                         ssh_error_type = "connection_refused"
                         ssh_error = f"SSH connection refused ({username})"
-                    elif "permission denied" in combined_output or "authentication failed" in combined_output:
+                    elif (
+                        "permission denied" in combined_output
+                        or "authentication failed" in combined_output
+                    ):
                         ssh_error_type = "auth_failed"
                         ssh_error = f"SSH auth failed ({username})"
                     else:
@@ -355,10 +361,11 @@ def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> 
                 text=True,
                 timeout=5,  # Reduced from 10 to 5 seconds
             )
-            
+
             # If BatchMode fails (no key), try with password auth from credentials
             if uid_result.returncode != 0:
                 from lab_testing.utils.credentials import get_credential, get_ssh_command
+
                 # Try to get credentials using IP as device identifier
                 cred = get_credential(ip, "ssh")
                 if cred and cred.get("password"):
@@ -455,7 +462,7 @@ def verify_device_by_ip(ip: str, username: str = "root", ssh_port: int = 22) -> 
         elif "connection" in error_str:
             ssh_error = "SSH connection error"
             ssh_error_type = "connection_error"
-    
+
     # Add SSH error info to result
     if ssh_error:
         result["ssh_error"] = ssh_error

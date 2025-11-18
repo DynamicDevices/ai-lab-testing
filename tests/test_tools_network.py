@@ -16,16 +16,20 @@ class TestCreateNetworkMap:
     """Tests for create_network_map"""
 
     @patch("lab_testing.tools.network_mapper.get_lab_devices_config")
+    @patch("lab_testing.config.get_target_network")
     @patch("lab_testing.tools.network_mapper.test_device")
     @patch("lab_testing.tools.network_mapper.ssh_to_device")
     @patch("lab_testing.tools.tasmota_control.get_power_switch_for_device")
     def test_create_network_map_with_devices(
-        self, mock_get_switch, mock_ssh, mock_test, mock_config, sample_device_config
+        self, mock_get_switch, mock_ssh, mock_test, mock_target_network, mock_config, sample_device_config
     ):
         """Test creating network map with configured devices"""
         with open(sample_device_config) as f:
             config = json.load(f)
             mock_config.return_value = sample_device_config
+
+        # Mock target network to match sample config devices (192.168.1.0/24)
+        mock_target_network.return_value = "192.168.1.0/24"
 
         mock_test.return_value = {
             "device_id": "test_device_1",

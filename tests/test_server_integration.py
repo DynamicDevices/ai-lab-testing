@@ -48,8 +48,11 @@ class TestToolHandlers:
 
         result = handle_tool("list_devices", {}, "test-123", 0.0)
 
+        # list_devices now returns 1 TextContent item: combined summary + table
         assert len(result) == 1
         assert result[0].type == "text"
+        # Verify the combined content includes both summary and table
+        assert "**0 devices**" in result[0].text
         mock_list.assert_called_once()
 
     @patch("lab_testing.server.tool_handlers.power_cycle_device")
@@ -326,10 +329,8 @@ class TestToolHandlers:
         assert result_text["success"] is False
         assert "error" in result_text
 
-    @patch("lab_testing.server.tool_handlers.format_error_response")
-    def test_tool_handler_exception(self, mock_error):
+    def test_tool_handler_exception(self):
         """Test tool handler exception handling"""
-        mock_error.return_value = {"error": "Test error"}
         with patch(
             "lab_testing.server.tool_handlers.list_devices", side_effect=Exception("Test error")
         ):
@@ -337,4 +338,8 @@ class TestToolHandlers:
 
             assert len(result) == 1
             assert result[0].type == "text"
-            mock_error.assert_called_once()
+            # Error is returned as JSON in TextContent
+            import json
+            error_data = json.loads(result[0].text)
+            assert "error" in error_data
+            assert "Test error" in error_data["error"]

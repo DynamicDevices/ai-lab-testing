@@ -19,7 +19,8 @@ def get_all_tools() -> List[Tool]:
             name="list_devices",
             description=(
                 "List all devices on the target network with their status, firmware, and relationships. "
-                "Supports filtering by type, status, and search queries. Includes summary statistics."
+                "Supports filtering by type, status, SSH status, power state, and search queries. "
+                "Includes summary statistics. Supports sorting and limiting results."
             ),
             inputSchema={
                 "type": "object",
@@ -40,6 +41,34 @@ def get_all_tools() -> List[Tool]:
                         "type": "boolean",
                         "description": "Include summary statistics (counts by type/status) in response (default: true)",
                         "default": True,
+                    },
+                    "force_refresh": {
+                        "type": "boolean",
+                        "description": "Bypass cache and rescan all devices (default: false)",
+                        "default": False,
+                    },
+                    "ssh_status_filter": {
+                        "type": "string",
+                        "description": "Filter by SSH status (e.g., 'ok', 'error', 'refused', 'timeout', 'unknown')",
+                    },
+                    "power_state_filter": {
+                        "type": "string",
+                        "description": "Filter Tasmota devices by power state (e.g., 'on', 'off')",
+                    },
+                    "sort_by": {
+                        "type": "string",
+                        "description": "Sort results by field: 'ip', 'friendly_name', 'status', 'last_seen' (default: type then friendly_name)",
+                    },
+                    "sort_order": {
+                        "type": "string",
+                        "description": "Sort order: 'asc' or 'desc' (default: 'asc')",
+                        "enum": ["asc", "desc"],
+                        "default": "asc",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of devices to return (default: no limit)",
+                        "minimum": 1,
                     },
                 },
                 "required": [],

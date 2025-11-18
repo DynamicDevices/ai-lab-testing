@@ -146,10 +146,10 @@ Data flow: AI → MCP Server → Tools → Lab Framework → Hardware
 
 ## Tools
 
-- **Device**: `list_devices` (with filtering, summary stats, power state), `test_device`, `ssh_to_device`, `verify_device_identity`, `verify_device_by_ip`, `update_device_ip`, `update_device_friendly_name`
+- **Device**: `list_devices` (with filtering, sorting, limiting, summary stats, power state) - Shows device inventory with Power Switch column: Tasmota devices display their own power state (🟢 ON/🔴 OFF), other devices show which power switch controls them. Supports filtering by type, status, SSH status, power state, and search. Supports sorting by IP, friendly_name, status, or last_seen. Supports limiting results. Use force_refresh to bypass cache. `test_device`, `ssh_to_device`, `verify_device_identity`, `verify_device_by_ip`, `update_device_ip`, `update_device_friendly_name`
 - **VPN**: `vpn_status`, `connect_vpn`, `disconnect_vpn`
 - **Power**: `start_power_monitoring` (DMM or Tasmota), `get_power_logs`, `analyze_power_logs`, `monitor_low_power`, `compare_power_profiles` - Power monitoring via DMM (SCPI) or Tasmota energy monitoring
-- **Tasmota**: `tasmota_control`, `list_tasmota_devices`, `power_cycle_device` - Power cycle devices via Tasmota switches. Tasmota devices show power state (ON/OFF) and consumption (Watts) in device list
+- **Tasmota**: `tasmota_control`, `list_tasmota_devices`, `power_cycle_device` - Power cycle devices via Tasmota switches. Tasmota devices show power state (🟢 ON/🔴 OFF) in the Power Switch column and consumption (Watts) in the Type column of the device list
 - **Test Equipment**: `list_test_equipment`, `query_test_equipment` - Auto-detect and query test equipment (DMM, oscilloscopes) via SCPI protocol
 - **OTA/Containers**: `check_ota_status`, `trigger_ota_update`, `list_containers`, `deploy_container`, `get_system_status`, `get_firmware_version`, `get_foundries_registration_status`, `get_secure_boot_status`, `get_device_identity`
 - **Process Management**: `kill_stale_processes` - Kill duplicate processes that might interfere
@@ -157,7 +157,7 @@ Data flow: AI → MCP Server → Tools → Lab Framework → Hardware
 - **Change Tracking**: `get_change_history`, `revert_changes` - Track and revert changes for security/debugging
 - **Batch/Regression**: `batch_operation`, `regression_test`, `get_device_groups`
 - **Network Mapping**: `create_network_map` - Visual map of network with device type, uptime, friendly names, power switches
-- **Device Verification**: `verify_device_identity`, `verify_device_by_ip`, `update_device_ip` - Verify device identity in DHCP environments. Device list shows SSH status, last seen timestamps, and power switch relationships
+- **Device Verification**: `verify_device_identity`, `verify_device_by_ip`, `update_device_ip` - Verify device identity in DHCP environments. Device list shows SSH status, last seen timestamps, and power switch information (Tasmota devices show their own state, other devices show controlling switch)
 - **Help**: `help` - Get usage documentation and examples
 
 ## Resources

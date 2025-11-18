@@ -38,30 +38,30 @@ def _should_reload_module(module_name: str) -> bool:
     module_file = _get_module_file(module_name)
     if not module_file or not module_file.exists():
         return False
-    
+
     current_mtime = module_file.stat().st_mtime
     cached_mtime = _module_mtimes.get(module_name)
-    
+
     if cached_mtime is None or current_mtime > cached_mtime:
         _module_mtimes[module_name] = current_mtime
         return cached_mtime is not None  # Only reload if we've seen it before
-    
+
     return False
 
 
 def reload_if_changed(module_name: str) -> bool:
     """
     Reload a module if its file has changed.
-    
+
     Args:
         module_name: Full module name (e.g., 'lab_testing.server.tool_handlers')
-    
+
     Returns:
         True if module was reloaded, False otherwise
     """
     if not _should_reload_module(module_name):
         return False
-    
+
     try:
         if module_name in sys.modules:
             importlib.reload(sys.modules[module_name])
@@ -69,7 +69,7 @@ def reload_if_changed(module_name: str) -> bool:
     except Exception as e:
         # Log but don't fail - reload errors shouldn't crash the server
         print(f"Warning: Failed to reload {module_name}: {e}", file=sys.stderr)
-    
+
     return False
 
 
@@ -92,12 +92,12 @@ def reload_lab_testing_modules():
         "lab_testing.resources.health",
         "lab_testing.config",
     ]
-    
+
     reloaded = []
     for module_name in modules_to_check:
         if reload_if_changed(module_name):
             reloaded.append(module_name)
-    
+
     return reloaded
 
 
@@ -110,16 +110,8 @@ def setup_auto_reload():
     """Set up auto-reload for development mode"""
     if not is_dev_mode():
         return
-    
+
     # Initialize mtimes for all modules
     reload_lab_testing_modules()
-    
+
     print("Development mode enabled: Auto-reload active", file=sys.stderr)
-
-
-
-
-
-
-
-

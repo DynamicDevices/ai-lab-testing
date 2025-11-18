@@ -6,17 +6,18 @@ This module provides helpers to cache credentials by IP address temporarily.
 """
 
 from typing import Optional
-from lab_testing.utils.credentials import get_credential, cache_credential
+
+from lab_testing.utils.credentials import cache_credential, get_credential
 
 
 def get_credential_by_ip(ip: str, credential_type: str = "ssh") -> Optional[dict]:
     """
     Get credential for a device by IP address (used during discovery).
-    
+
     Args:
         ip: IP address
         credential_type: Type of credential (ssh, sudo, etc.)
-        
+
     Returns:
         Credential dict with username/password or None
     """
@@ -28,7 +29,7 @@ def cache_credential_by_ip(
 ):
     """
     Cache credential for a device by IP address (used during discovery).
-    
+
     Args:
         ip: IP address
         username: Username
@@ -36,4 +37,3 @@ def cache_credential_by_ip(
         credential_type: Type of credential (ssh, sudo, etc.)
     """
     cache_credential(ip, username, password, credential_type)
-

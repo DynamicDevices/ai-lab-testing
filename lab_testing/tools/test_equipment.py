@@ -52,9 +52,7 @@ def list_test_equipment() -> Dict[str, Any]:
         for ip, cached_info in cache.items():
             if cached_info.get("test_equipment_detected"):
                 # Check if already in configured list
-                already_listed = any(
-                    te.get("ip") == ip for te in test_equipment
-                )
+                already_listed = any(te.get("ip") == ip for te in test_equipment)
 
                 if not already_listed:
                     # Get device info from cache
@@ -68,7 +66,11 @@ def list_test_equipment() -> Dict[str, Any]:
                         {
                             "id": f"device_{ip.replace('.', '_')}",
                             "name": f"Test Equipment at {ip}",
-                            "friendly_name": f"{manufacturer} {model}" if model != "Unknown" else f"Test Equipment at {ip}",
+                            "friendly_name": (
+                                f"{manufacturer} {model}"
+                                if model != "Unknown"
+                                else f"Test Equipment at {ip}"
+                            ),
                             "ip": ip,
                             "model": model,
                             "manufacturer": manufacturer,
@@ -179,7 +181,3 @@ def query_test_equipment(device_id_or_ip: str, scpi_command: str) -> Dict[str, A
 
     except Exception as e:
         return {"success": False, "error": f"Failed to query test equipment: {e!s}"}
-
-
-
-

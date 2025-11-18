@@ -62,6 +62,7 @@ logger = get_logger()
 # Development mode: Set up auto-reload
 try:
     from lab_testing.server.dev_reload import setup_auto_reload
+
     setup_auto_reload()
 except ImportError:
     pass  # dev_reload module not available
@@ -89,7 +90,9 @@ async def handle_list_tools() -> List[Tool]:
 
 
 @server.call_tool()
-async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> List[Union[TextContent, ImageContent]]:
+async def handle_call_tool(
+    name: str, arguments: Dict[str, Any]
+) -> List[Union[TextContent, ImageContent]]:
     """Handle tool execution requests"""
     request_id = str(uuid.uuid4())[:8]
     start_time = time.time()

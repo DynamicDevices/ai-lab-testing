@@ -80,11 +80,41 @@ def load_device_config() -> Dict[str, Any]:
         raise ValueError(f"Error parsing device configuration: {e}")
 
 
+def _get_ssh_status(device: Dict[str, Any]) -> str:
+    """
+    Determine SSH status for a device.
+    
+    Args:
+        device: Device dictionary
+        
+    Returns:
+        SSH status string: "ok", "error", "refused", or "unknown"
+    """
+    if device.get("hostname"):
+        return "ok"
+    ssh_error = device.get("ssh_error", "")
+    ssh_error_type = device.get("ssh_error_type", "")
+    if ssh_error:
+        if "refused" in ssh_error.lower() or ssh_error_type == "refused":
+            return "refused"
+        elif ssh_error_type == "timeout":
+            return "timeout"
+        else:
+            return "error"
+    return "unknown"
+
+
 def list_devices(
     device_type_filter: Optional[str] = None,
     status_filter: Optional[str] = None,
     search_query: Optional[str] = None,
     show_summary: bool = True,
+    force_refresh: bool = False,
+    ssh_status_filter: Optional[str] = None,
+    power_state_filter: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_order: str = "asc",
+    limit: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     List devices actually on the target network by scanning it.
@@ -97,6 +127,12 @@ def list_devices(
         status_filter: Filter by status (e.g., "online", "offline", "discovered")
         search_query: Search by IP, hostname, friendly name, or device ID (case-insensitive)
         show_summary: Include summary statistics (default: True)
+        force_refresh: If True, bypass cache and rescan all devices (default: False)
+        ssh_status_filter: Filter by SSH status (e.g., "ok", "error", "refused", "unknown")
+        power_state_filter: Filter Tasmota devices by power state (e.g., "on", "off")
+        sort_by: Sort results by field (e.g., "ip", "friendly_name", "status", "last_seen") (default: type then friendly_name)
+        sort_order: Sort order - "asc" or "desc" (default: "asc")
+        limit: Maximum number of devices to return (default: None, no limit)
 
     Returns:
         Dictionary containing device list and summary information
@@ -121,6 +157,9 @@ def list_devices(
 
     # Scan the target network for active devices
     active_hosts = _scan_network_range(target_network, max_hosts=254, timeout=0.5)
+    # Ensure active_hosts is always a list (handle None case)
+    if active_hosts is None:
+        active_hosts = []
 
     # Load config to match discovered hosts with configured devices
     config = load_device_config()
@@ -140,18 +179,23 @@ def list_devices(
 
     for host in active_hosts:
         ip = host["ip"]
-        cached_info = get_cached_device_info(ip)
-        if cached_info:
-            cached_devices[ip] = cached_info
-            # Check if cached device needs Tasmota/test equipment detection
-            # (e.g., old cache entries without detection, or devices that might have changed)
-            if not cached_info.get("tasmota_detected") and not cached_info.get(
-                "test_equipment_detected"
-            ):
-                ips_needing_detection.append(ip)
-        else:
+        # If force_refresh is True, skip cache and treat all devices as uncached
+        if force_refresh:
             uncached_ips.append(ip)
             ips_needing_detection.append(ip)
+        else:
+            cached_info = get_cached_device_info(ip)
+            if cached_info:
+                cached_devices[ip] = cached_info
+                # Check if cached device needs Tasmota/test equipment detection
+                # (e.g., old cache entries without detection, or devices that might have changed)
+                if not cached_info.get("tasmota_detected") and not cached_info.get(
+                    "test_equipment_detected"
+                ):
+                    ips_needing_detection.append(ip)
+            else:
+                uncached_ips.append(ip)
+                ips_needing_detection.append(ip)
 
     # Quick detection of Tasmota and test equipment devices (parallel)
     # Check both uncached IPs and cached IPs that don't have detection yet
@@ -462,7 +506,8 @@ def list_devices(
                 switch_info = configured_devices[power_switch_id]
                 device_entry["power_switch"] = {
                     "device_id": power_switch_id,
-                    "friendly_name": switch_info.get("friendly_name") or switch_info.get("name", power_switch_id),
+                    "friendly_name": switch_info.get("friendly_name")
+                    or switch_info.get("name", power_switch_id),
                     "ip": switch_info.get("ip"),
                 }
 
@@ -471,6 +516,7 @@ def list_devices(
             cached_at = cached_info.get("cached_at")
             if cached_at:
                 import time
+
                 cache_age_seconds = time.time() - cached_at
                 device_entry["cache_age_seconds"] = cache_age_seconds
                 if cache_age_seconds < 60:
@@ -493,22 +539,36 @@ def list_devices(
         if device_type in ["tasmota_device", "eink_board", "sentai_board"]:
             # Sort devices by IP for consistent ordering
             device_list.sort(key=lambda d: d.get("ip", ""))
-            
+
             # Assign indexed friendly names
             for index, device in enumerate(device_list, start=1):
                 # Only assign if no friendly_name from config or if it's a generic name
                 current_friendly = device.get("friendly_name", "")
-                
+
                 # Check if it's a generic name that should be replaced
                 # Generic names: empty, "Device at IP", or hostname-based names without type indicator
                 is_generic = (
                     not current_friendly
                     or current_friendly.startswith("Device at ")
-                    or (device_type == "tasmota_device" and "Tasmota" not in current_friendly and not current_friendly.startswith("IoT"))
-                    or (device_type == "eink_board" and "E-ink" not in current_friendly and "eink" not in current_friendly.lower() and not any(x in current_friendly.lower() for x in ["board", "jaguar"]))
-                    or (device_type == "sentai_board" and "Sentai" not in current_friendly and "sentai" not in current_friendly.lower() and not any(x in current_friendly.lower() for x in ["board", "jaguar"]))
+                    or (
+                        device_type == "tasmota_device"
+                        and "Tasmota" not in current_friendly
+                        and not current_friendly.startswith("IoT")
+                    )
+                    or (
+                        device_type == "eink_board"
+                        and "E-ink" not in current_friendly
+                        and "eink" not in current_friendly.lower()
+                        and not any(x in current_friendly.lower() for x in ["board", "jaguar"])
+                    )
+                    or (
+                        device_type == "sentai_board"
+                        and "Sentai" not in current_friendly
+                        and "sentai" not in current_friendly.lower()
+                        and not any(x in current_friendly.lower() for x in ["board", "jaguar"])
+                    )
                 )
-                
+
                 # Don't override if device has a configured friendly_name (unless it's generic)
                 if is_generic:
                     if device_type == "tasmota_device":
@@ -547,6 +607,24 @@ def list_devices(
                 )
             ]
 
+        # Filter by SSH status
+        if ssh_status_filter:
+            ssh_status_filter_lower = ssh_status_filter.lower()
+            filtered_list = [
+                d
+                for d in filtered_list
+                if _get_ssh_status(d).lower() == ssh_status_filter_lower
+            ]
+
+        # Filter by power state (for Tasmota devices)
+        if power_state_filter:
+            power_state_filter_lower = power_state_filter.lower()
+            filtered_list = [
+                d
+                for d in filtered_list
+                if d.get("tasmota_power_state", "").lower() == power_state_filter_lower
+            ]
+
         if filtered_list:
             filtered_devices_by_type[device_type] = filtered_list
 
@@ -569,12 +647,7 @@ def list_devices(
         ssh_status_counts = {}
         for device_type, device_list in filtered_devices_by_type.items():
             for device in device_list:
-                if device.get("hostname"):
-                    ssh_status = "ok"
-                elif device.get("ssh_error"):
-                    ssh_status = "error"
-                else:
-                    ssh_status = "unknown"
+                ssh_status = _get_ssh_status(device)
                 ssh_status_counts[ssh_status] = ssh_status_counts.get(ssh_status, 0) + 1
 
         summary_stats = {
@@ -583,6 +656,81 @@ def list_devices(
             "by_ssh_status": ssh_status_counts,
             "total": sum(len(devices) for devices in filtered_devices_by_type.values()),
         }
+
+    # Apply sorting if requested
+    if sort_by:
+        import ipaddress
+        
+        def _get_sort_key(device: Dict[str, Any]) -> Any:
+            """Get sort key for a device based on sort_by field"""
+            if sort_by == "ip":
+                # Sort IPs numerically
+                try:
+                    return ipaddress.IPv4Address(device.get("ip", "0.0.0.0"))
+                except:
+                    return device.get("ip", "")
+            elif sort_by == "friendly_name":
+                return (device.get("friendly_name") or device.get("name", "")).lower()
+            elif sort_by == "status":
+                return device.get("status", "unknown")
+            elif sort_by == "last_seen":
+                # Extract numeric value from "Xs ago", "Xm ago", "Xh ago", "Xd ago", or "Unknown"
+                last_seen = device.get("last_seen", "Unknown")
+                if last_seen == "Unknown":
+                    return float('inf')  # Put Unknown at the end
+                try:
+                    # Parse "Xs ago", "Xm ago", etc.
+                    if last_seen.endswith("s ago"):
+                        return int(last_seen.replace("s ago", ""))
+                    elif last_seen.endswith("m ago"):
+                        return int(last_seen.replace("m ago", "")) * 60
+                    elif last_seen.endswith("h ago"):
+                        return int(last_seen.replace("h ago", "")) * 3600
+                    elif last_seen.endswith("d ago"):
+                        return int(last_seen.replace("d ago", "")) * 86400
+                except:
+                    return float('inf')
+                return float('inf')
+            else:
+                # Default: sort by IP
+                try:
+                    return ipaddress.IPv4Address(device.get("ip", "0.0.0.0"))
+                except:
+                    return device.get("ip", "")
+        
+        # Sort each device list
+        for device_type, device_list in filtered_devices_by_type.items():
+            reverse = sort_order.lower() == "desc"
+            # Special handling for last_seen - reverse makes sense (newest first)
+            if sort_by == "last_seen" and reverse:
+                # For last_seen desc, we want smallest numbers first (most recent)
+                filtered_devices_by_type[device_type] = sorted(
+                    device_list, key=_get_sort_key, reverse=False
+                )
+            else:
+                filtered_devices_by_type[device_type] = sorted(
+                    device_list, key=_get_sort_key, reverse=reverse
+                )
+
+    # Apply limit if requested
+    if limit and limit > 0:
+        # Flatten all devices, apply limit, then regroup
+        all_devices_flat = []
+        for device_type, device_list in filtered_devices_by_type.items():
+            for device in device_list:
+                device["_type"] = device_type
+                all_devices_flat.append(device)
+        
+        # Apply limit
+        all_devices_flat = all_devices_flat[:limit]
+        
+        # Regroup by type
+        filtered_devices_by_type = {}
+        for device in all_devices_flat:
+            device_type = device.pop("_type")
+            if device_type not in filtered_devices_by_type:
+                filtered_devices_by_type[device_type] = []
+            filtered_devices_by_type[device_type].append(device)
 
     # Get infrastructure info
     infrastructure = config.get("lab_infrastructure", {})
@@ -600,6 +748,12 @@ def list_devices(
             "device_type": device_type_filter,
             "status": status_filter,
             "search": search_query,
+            "ssh_status": ssh_status_filter,
+            "power_state": power_state_filter,
+            "force_refresh": force_refresh,
+            "sort_by": sort_by,
+            "sort_order": sort_order,
+            "limit": limit,
         },
     }
 

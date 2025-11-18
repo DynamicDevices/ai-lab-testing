@@ -132,7 +132,9 @@ def _format_test_equipment_as_table(test_equip_result: Dict[str, Any]) -> str:
     count = test_equip_result.get("count", 0)
 
     if count == 0:
-        return "**No test equipment found.**\n\nRun `list_devices` to discover devices on the network."
+        return (
+            "**No test equipment found.**\n\nRun `list_devices` to discover devices on the network."
+        )
 
     lines = []
     lines.append(f"## Test Equipment ({count} device(s))\n")
@@ -250,15 +252,21 @@ def _format_devices_as_table(devices_result: Dict[str, Any]) -> str:
         ssh_status_counts = summary_stats.get("by_ssh_status", {})
 
         if type_counts:
-            type_summary = ", ".join([f"{v} {k.replace('_', ' ').title()}" for k, v in sorted(type_counts.items())])
+            type_summary = ", ".join(
+                [f"{v} {k.replace('_', ' ').title()}" for k, v in sorted(type_counts.items())]
+            )
             lines.append(f"- **By Type:** {type_summary}")
 
         if status_counts:
-            status_summary = ", ".join([f"{v} {k.title()}" for k, v in sorted(status_counts.items())])
+            status_summary = ", ".join(
+                [f"{v} {k.title()}" for k, v in sorted(status_counts.items())]
+            )
             lines.append(f"- **By Status:** {status_summary}")
 
         if ssh_status_counts:
-            ssh_summary = ", ".join([f"{v} SSH {k.title()}" for k, v in sorted(ssh_status_counts.items())])
+            ssh_summary = ", ".join(
+                [f"{v} SSH {k.title()}" for k, v in sorted(ssh_status_counts.items())]
+            )
             lines.append(f"- **By SSH Status:** {ssh_summary}")
 
         lines.append("")
@@ -364,7 +372,11 @@ def _format_devices_as_table(devices_result: Dict[str, Any]) -> str:
             equipment_type = device.get("equipment_type")
             if equipment_type:
                 # Capitalize and format (e.g., "dmm" -> "DMM", "power_supply" -> "Power Supply")
-                device_type_display = equipment_type.upper() if equipment_type in ["dmm", "oscilloscope"] else equipment_type.replace("_", " ").title()
+                device_type_display = (
+                    equipment_type.upper()
+                    if equipment_type in ["dmm", "oscilloscope"]
+                    else equipment_type.replace("_", " ").title()
+                )
             else:
                 device_type_display = "Test Equipment"
         # For Tasmota devices, add power state and consumption
@@ -422,12 +434,28 @@ def _format_devices_as_table(devices_result: Dict[str, Any]) -> str:
             last_seen = "—"
 
         # Format power switch relationship
-        power_switch = device.get("power_switch")
-        if power_switch:
-            switch_name = power_switch.get("friendly_name", power_switch.get("device_id", "Unknown"))
-            power_switch_display = f"🔌 {switch_name[:20]}" + ("..." if len(switch_name) > 20 else "")
+        # For Tasmota devices, show their own power state (ON/OFF)
+        tasmota_power_state = device.get("tasmota_power_state")
+        if tasmota_power_state:
+            # Tasmota device - show its own power state
+            if tasmota_power_state.lower() == "on":
+                power_switch_display = "🟢 ON"
+            elif tasmota_power_state.lower() == "off":
+                power_switch_display = "🔴 OFF"
+            else:
+                power_switch_display = f"⚪ {tasmota_power_state.upper()}"
         else:
-            power_switch_display = "—"
+            # Check if this device is controlled by a power switch
+            power_switch = device.get("power_switch")
+            if power_switch:
+                switch_name = power_switch.get(
+                    "friendly_name", power_switch.get("device_id", "Unknown")
+                )
+                power_switch_display = f"🔌 {switch_name[:20]}" + (
+                    "..." if len(switch_name) > 20 else ""
+                )
+            else:
+                power_switch_display = "—"
 
         # Truncate long names/IDs for table readability
         friendly_name_display = friendly_name[:30] + ("..." if len(friendly_name) > 30 else "")
@@ -505,12 +533,24 @@ def handle_tool(
                 status_filter = arguments.get("status_filter")
                 search_query = arguments.get("search_query")
                 show_summary = arguments.get("show_summary", True)
+                force_refresh = arguments.get("force_refresh", False)
+                ssh_status_filter = arguments.get("ssh_status_filter")
+                power_state_filter = arguments.get("power_state_filter")
+                sort_by = arguments.get("sort_by")
+                sort_order = arguments.get("sort_order", "asc")
+                limit = arguments.get("limit")
 
                 result = list_devices(
                     device_type_filter=device_type_filter,
                     status_filter=status_filter,
                     search_query=search_query,
                     show_summary=show_summary,
+                    force_refresh=force_refresh,
+                    ssh_status_filter=ssh_status_filter,
+                    power_state_filter=power_state_filter,
+                    sort_by=sort_by,
+                    sort_order=sort_order,
+                    limit=limit,
                 )
                 _record_tool_result(name, result, request_id, start_time)
                 # Format as table for better readability
@@ -533,42 +573,52 @@ def handle_tool(
                         table_text = str(table_text)
                     if not table_text.strip():
                         raise ValueError("Table text is empty after conversion")
-                    
+
                     # Create a brief summary that's always visible (first TextContent)
                     total_devices = result.get("total_devices", 0)
                     summary_stats = result.get("summary_stats", {})
                     type_counts = summary_stats.get("by_type", {})
                     status_counts = summary_stats.get("by_status", {})
-                    
+
                     # Build a concise one-line summary
                     summary_parts = [f"**{total_devices} devices**"]
                     if type_counts:
-                        type_summary = ", ".join([f"{v} {k.replace('_', ' ').title()}" for k, v in sorted(type_counts.items())])
+                        type_summary = ", ".join(
+                            [
+                                f"{v} {k.replace('_', ' ').title()}"
+                                for k, v in sorted(type_counts.items())
+                            ]
+                        )
                         summary_parts.append(f"({type_summary})")
                     if status_counts:
                         online = status_counts.get("online", 0)
                         if online > 0:
                             summary_parts.append(f"— {online} online")
-                    
+
                     summary_text = " ".join(summary_parts)
-                    
-                    # Create two TextContent items: brief summary first, then full table
-                    summary_content = TextContent(type="text", text=summary_text)
-                    table_content = TextContent(type="text", text=table_text)
-                    
+
+                    # Combine summary and table into a single TextContent for better visibility
+                    # The summary appears first, followed by the full table
+                    combined_text = f"{summary_text}\n\n{table_text}"
+
+                    # Create single TextContent with combined summary and table
+                    combined_content = TextContent(type="text", text=combined_text)
+
                     # Verify the content was created correctly
-                    if not hasattr(summary_content, 'text') or not summary_content.text:
-                        raise ValueError(f"Summary TextContent created but text attribute is missing or empty")
-                    if not hasattr(table_content, 'text') or not table_content.text:
-                        raise ValueError(f"Table TextContent created but text attribute is missing or empty")
-                    
+                    if not hasattr(combined_content, "text") or not combined_content.text:
+                        raise ValueError(
+                            "Combined TextContent created but text attribute is missing or empty"
+                        )
+
                     logger.info(
-                        f"[{request_id}] list_devices: Created summary (length={len(summary_content.text)}) and table (length={len(table_content.text)})"
+                        f"[{request_id}] list_devices: Created combined content (summary length={len(summary_text)}, table length={len(table_text)}, total={len(combined_text)})"
                     )
-                    
-                    # Return both: summary first (always visible), then full table
-                    result_list = [summary_content, table_content]
-                    logger.debug(f"[{request_id}] list_devices: Returning {len(result_list)} content item(s)")
+
+                    # Return single combined content item
+                    result_list = [combined_content]
+                    logger.debug(
+                        f"[{request_id}] list_devices: Returning {len(result_list)} content item(s)"
+                    )
                     return result_list
                 except Exception as e:
                     logger.error(
@@ -577,7 +627,9 @@ def handle_tool(
                     )
                     # Fallback: return as JSON
                     fallback_text = json.dumps(result, indent=2)
-                    logger.warning(f"[{request_id}] list_devices: Using JSON fallback, length={len(fallback_text)}")
+                    logger.warning(
+                        f"[{request_id}] list_devices: Using JSON fallback, length={len(fallback_text)}"
+                    )
                     return [TextContent(type="text", text=fallback_text)]
             except Exception as e:
                 logger.error(f"[{request_id}] list_devices: Unexpected error: {e}", exc_info=True)

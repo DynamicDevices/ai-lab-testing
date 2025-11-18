@@ -7,7 +7,7 @@ License: GPL-3.0-or-later
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 # Default paths - can be overridden via environment variables
 DEFAULT_LAB_TESTING_ROOT = Path("/data_drive/esl/ai-lab-testing")
@@ -106,12 +106,12 @@ def get_logs_dir() -> Path:
 def get_target_network() -> str:
     """
     Get the target network for lab testing operations.
-    
+
     Priority:
     1. TARGET_NETWORK environment variable
     2. Value from lab_devices.json config file (if exists)
     3. Default: 192.168.2.0/24
-    
+
     Returns:
         Network CIDR string (e.g., "192.168.2.0/24")
     """
@@ -119,11 +119,12 @@ def get_target_network() -> str:
     env_network = os.getenv("TARGET_NETWORK")
     if env_network:
         return env_network
-    
+
     # Check config file
     try:
         if LAB_DEVICES_JSON.exists():
             import json
+
             with open(LAB_DEVICES_JSON) as f:
                 config = json.load(f)
                 infrastructure = config.get("lab_infrastructure", {})
@@ -134,20 +135,20 @@ def get_target_network() -> str:
     except Exception:
         # If config read fails, fall back to default
         pass
-    
+
     # Default target network
     return DEFAULT_TARGET_NETWORK
 
 
-def get_lab_networks() -> list[str]:
+def get_lab_networks() -> List[str]:
     """
     Get list of lab networks for scanning.
-    
+
     Priority:
     1. Networks from lab_devices.json config file
     2. TARGET_NETWORK environment variable (as single-item list)
     3. Default: [target_network]
-    
+
     Returns:
         List of network CIDR strings
     """
@@ -155,6 +156,7 @@ def get_lab_networks() -> list[str]:
     try:
         if LAB_DEVICES_JSON.exists():
             import json
+
             with open(LAB_DEVICES_JSON) as f:
                 config = json.load(f)
                 infrastructure = config.get("lab_infrastructure", {})
@@ -164,7 +166,7 @@ def get_lab_networks() -> list[str]:
                     return lab_networks
     except Exception:
         pass
-    
+
     # Fall back to target network
     return [get_target_network()]
 
