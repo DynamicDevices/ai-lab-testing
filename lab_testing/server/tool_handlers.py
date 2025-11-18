@@ -855,12 +855,9 @@ def handle_tool(
             }
             _record_tool_result(name, result, request_id, start_time)
 
-            # Return Mermaid diagram as primary visualization
+            # Return PNG image as primary visualization (since Cursor doesn't render Mermaid yet)
             contents = []
-            if mermaid_diagram:
-                # Return Mermaid diagram as primary TextContent
-                contents.append(TextContent(type="text", text=mermaid_diagram))
-
+            
             # Add PNG image from Mermaid conversion (preferred over matplotlib version)
             png_to_use = mermaid_png_base64 if mermaid_png_base64 else image_base64
 
@@ -928,9 +925,17 @@ def handle_tool(
                         )
                     )
 
-            # If no Mermaid diagram was added, add it as fallback
-            if not contents and mermaid_diagram:
-                contents.append(TextContent(type="text", text=mermaid_diagram))
+            # Add Mermaid diagram text after the image (for copying/export if needed)
+            # Note: Cursor doesn't render Mermaid diagrams interactively yet, so PNG is primary
+            if mermaid_diagram:
+                mermaid_note = (
+                    "\n\n---\n\n"
+                    "**Mermaid Diagram Source** (available for copying/export):\n\n"
+                    f"{mermaid_diagram}\n\n"
+                    "*Note: Cursor doesn't render Mermaid diagrams interactively yet. "
+                    "Use the PNG image above for visualization, or copy the Mermaid code to render elsewhere.*\n"
+                )
+                contents.append(TextContent(type="text", text=mermaid_note))
 
             # Add summary as separate content with target network info
             summary = network_map.get("summary", {})
