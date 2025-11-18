@@ -493,7 +493,7 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
 
         summary = network_map.get("summary", {})
         configured_devices = network_map.get("configured_devices", {})
-        
+
         # Extract visualization options
         viz_options = network_map.get("visualization_options", {})
         layout = viz_options.get("layout", "lr")
@@ -535,12 +535,11 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                 return "online"  # Default
             if latency_ms < 10:
                 return "latency_excellent"  # Green
-            elif latency_ms < 50:
+            if latency_ms < 50:
                 return "latency_good"  # Yellow
-            elif latency_ms < 100:
+            if latency_ms < 100:
                 return "latency_fair"  # Orange
-            else:
-                return "latency_poor"  # Red
+            return "latency_poor"  # Red
 
         # Helper function to get alert indicators
         def get_alert_indicators(device: Dict[str, Any]) -> List[str]:
@@ -550,7 +549,7 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
             ssh_error_type = device.get("ssh_error_type")
             last_seen = device.get("last_seen")
             power_watts = device.get("tasmota_power_watts")
-            
+
             # SSH errors
             if ssh_error:
                 if ssh_error_type == "timeout":
@@ -561,15 +560,16 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                     alerts.append("🔐 Auth Failed")
                 else:
                     alerts.append("⚠️ SSH Error")
-            
+
             # High power consumption warning (for Tasmota devices)
             if power_watts is not None and power_watts > 50:
                 alerts.append("⚡ High Power")
-            
+
             # Device not seen recently (if show_history enabled)
             if show_history and last_seen:
                 # Parse last_seen timestamp if it's a string
                 import datetime
+
                 try:
                     if isinstance(last_seen, str):
                         # Try parsing ISO format or relative time
@@ -578,31 +578,38 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                             alerts.append(f"🕐 {last_seen}")
                         else:
                             # ISO timestamp
-                            last_seen_dt = datetime.datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
+                            last_seen_dt = datetime.datetime.fromisoformat(
+                                last_seen.replace("Z", "+00:00")
+                            )
                             now = datetime.datetime.now(datetime.timezone.utc)
                             age = now - last_seen_dt
                             if age.total_seconds() > 3600:  # More than 1 hour
                                 alerts.append(f"🕐 {int(age.total_seconds() / 3600)}h ago")
                 except Exception:
                     pass
-            
+
             return alerts
 
         # Helper function to build enhanced device label
-        def build_device_label(device: Dict[str, Any], device_type: str, hostname: str, ip: str, 
-                              is_gateway: bool = False) -> Tuple[str, str]:
+        def build_device_label(
+            device: Dict[str, Any],
+            device_type: str,
+            hostname: str,
+            ip: str,
+            is_gateway: bool = False,
+        ) -> Tuple[str, str]:
             """Build device label with optional details, alerts, and metrics
-            
+
             Returns:
                 Tuple of (label_string, css_class)
             """
             icon = get_icon(device_type)
             label_parts = [f"{icon} {hostname}", ip]
-            
+
             # Add gateway indicator
             if is_gateway:
                 label_parts.insert(1, "🌐 Gateway")
-            
+
             # Add device details if requested
             if show_details:
                 # Manufacturer/model
@@ -612,29 +619,31 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                     label_parts.append(f"Mfr: {manufacturer}")
                 if model:
                     label_parts.append(f"Model: {model}")
-                
+
                 # Firmware version
                 firmware = device.get("firmware")
                 if firmware:
                     if isinstance(firmware, dict):
-                        fw_version = firmware.get("version_id") or firmware.get("version", "Unknown")
+                        fw_version = firmware.get("version_id") or firmware.get(
+                            "version", "Unknown"
+                        )
                     else:
                         fw_version = str(firmware)
                     label_parts.append(f"FW: {fw_version[:20]}")
-                
+
                 # MAC address (if available)
                 mac = device.get("mac_address") or device.get("mac")
                 if mac:
                     label_parts.append(f"MAC: {mac[:17]}")
-            
+
             # Add performance metrics if requested
             latency_ms = device.get("latency_ms")
             css_class = "online"  # Default
-            
+
             if show_metrics and latency_ms is not None:
                 label_parts.append(f"Ping: {latency_ms}ms")
                 css_class = get_latency_color_class(latency_ms)
-            
+
             # Add alert indicators if requested
             if show_alerts:
                 alerts = get_alert_indicators(device)
@@ -643,7 +652,7 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                     # Override CSS class for devices with alerts
                     if ssh_error := device.get("ssh_error"):
                         css_class = "alert_device"
-            
+
             # Add SSH status
             ssh_error = device.get("ssh_error")
             ssh_status = device.get("ssh_status")
@@ -653,7 +662,7 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                 label_parts.append("SSH: ✓")
             else:
                 label_parts.append("SSH: ✗")
-            
+
             # Join parts and wrap in quotes
             label = f'"{"<br/>".join(label_parts)}"'
             return label, css_class
@@ -862,6 +871,8 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                                 tasmota_name = switch_info.get("friendly_name") or switch_info.get(
                                     "name", power_switch_id
                                 )
+                                # Define tasmota_node_id before checking if it exists
+                                tasmota_node_id = f"T_{power_switch_id.replace('-', '_').replace('.', '_').replace('/', '_')}"
                                 if tasmota_node_id not in tasmota_nodes:
                                     tasmota_clean_name = (
                                         tasmota_name.replace('"', "'")
@@ -905,7 +916,9 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
             clean_hostname = hostname.replace('"', "'").replace("\n", " ").replace("\r", " ")
 
             # Use helper function to build enhanced label
-            node_label, css_class = build_device_label(device, device_type, clean_hostname, ip, is_gateway)
+            node_label, css_class = build_device_label(
+                device, device_type, clean_hostname, ip, is_gateway
+            )
 
             node_id = f"D_{device_id.replace('-', '_').replace('.', '_').replace('/', '_')}"
             device_nodes[node_id] = {"type": device_type, "device_id": device_id}
@@ -937,6 +950,8 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                             tasmota_name = switch_info.get("friendly_name") or switch_info.get(
                                 "name", power_switch_id
                             )
+                            # Define tasmota_node_id before checking if it exists
+                            tasmota_node_id = f"T_{power_switch_id.replace('-', '_').replace('.', '_').replace('/', '_')}"
                             # Add Tasmota node if not already added
                             if tasmota_node_id not in tasmota_nodes:
                                 tasmota_clean_name = (
@@ -1051,6 +1066,8 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                                 tasmota_name = switch_info.get("friendly_name") or switch_info.get(
                                     "name", power_switch_id
                                 )
+                                # Define tasmota_node_id before checking if it exists
+                                tasmota_node_id = f"T_{power_switch_id.replace('-', '_').replace('.', '_').replace('/', '_')}"
                                 if tasmota_node_id not in tasmota_nodes:
                                     tasmota_clean_name = (
                                         tasmota_name.replace('"', "'")
@@ -1116,6 +1133,8 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                             tasmota_name = switch_info.get("friendly_name") or switch_info.get(
                                 "name", power_switch_id
                             )
+                            # Define tasmota_node_id before checking if it exists
+                            tasmota_node_id = f"T_{power_switch_id.replace('-', '_').replace('.', '_').replace('/', '_')}"
                             if tasmota_node_id not in tasmota_nodes:
                                 tasmota_clean_name = (
                                     tasmota_name.replace('"', "'")
@@ -1201,17 +1220,27 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
             "    classDef offline fill:#FFB6B6,stroke:#FF0000,stroke-width:2px,stroke-dasharray: 5 5,color:#000"
         )
         lines.append("    classDef power_line stroke:#FFD700,stroke-width:4px")
-        
+
         # Add latency-based performance metric classes (if show_metrics enabled)
         if show_metrics:
-            lines.append("    classDef latency_excellent fill:#90EE90,stroke:#228B22,stroke-width:3px,color:#000")
-            lines.append("    classDef latency_good fill:#FFD700,stroke:#FFA500,stroke-width:3px,color:#000")
-            lines.append("    classDef latency_fair fill:#FFA07A,stroke:#FF6347,stroke-width:3px,color:#000")
-            lines.append("    classDef latency_poor fill:#FF6B6B,stroke:#CC0000,stroke-width:3px,color:#FFF")
-        
+            lines.append(
+                "    classDef latency_excellent fill:#90EE90,stroke:#228B22,stroke-width:3px,color:#000"
+            )
+            lines.append(
+                "    classDef latency_good fill:#FFD700,stroke:#FFA500,stroke-width:3px,color:#000"
+            )
+            lines.append(
+                "    classDef latency_fair fill:#FFA07A,stroke:#FF6347,stroke-width:3px,color:#000"
+            )
+            lines.append(
+                "    classDef latency_poor fill:#FF6B6B,stroke:#CC0000,stroke-width:3px,color:#FFF"
+            )
+
         # Add alert device class (if show_alerts enabled)
         if show_alerts:
-            lines.append("    classDef alert_device fill:#FFB6B6,stroke:#FF0000,stroke-width:4px,color:#000")
+            lines.append(
+                "    classDef alert_device fill:#FFB6B6,stroke:#FF0000,stroke-width:4px,color:#000"
+            )
 
         # Add link styling for power connections (thicker, golden color)
         lines.append("    linkStyle default stroke:#FFD700,stroke-width:3px")
