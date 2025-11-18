@@ -41,7 +41,15 @@ from lab_testing.tools.batch_operations import (
 from lab_testing.tools.credential_manager import (
     cache_device_credentials,
     check_ssh_key_status,
+    disable_passwordless_sudo_on_device,
+    enable_passwordless_sudo_on_device,
     install_ssh_key_on_device,
+)
+from lab_testing.tools.file_transfer import (
+    copy_file_from_device,
+    copy_file_to_device,
+    copy_files_to_device_parallel,
+    sync_directory_to_device,
 )
 from lab_testing.tools.device_manager import (
     list_devices,
@@ -1209,6 +1217,220 @@ def handle_tool(
 
             except Exception as e:
                 error_msg = f"Failed to install SSH key: {e!s}"
+                logger.error(f"[{request_id}] {error_msg}", exc_info=True)
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+        if name == "enable_passwordless_sudo":
+            device_id = arguments.get("device_id")
+            username = arguments.get("username")
+            password = arguments.get("password")
+
+            if not device_id:
+                error_msg = "device_id is required"
+                logger.error(f"[{request_id}] {error_msg}")
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+            try:
+                result = enable_passwordless_sudo_on_device(
+                    device_id=device_id, username=username, password=password
+                )
+                _record_tool_result(name, result, request_id, start_time)
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            except Exception as e:
+                error_msg = f"Failed to enable passwordless sudo: {e!s}"
+                logger.error(f"[{request_id}] {error_msg}", exc_info=True)
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+        if name == "disable_passwordless_sudo":
+            device_id = arguments.get("device_id")
+            username = arguments.get("username")
+            password = arguments.get("password")
+
+            if not device_id:
+                error_msg = "device_id is required"
+                logger.error(f"[{request_id}] {error_msg}")
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+            try:
+                result = disable_passwordless_sudo_on_device(
+                    device_id=device_id, username=username, password=password
+                )
+                _record_tool_result(name, result, request_id, start_time)
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            except Exception as e:
+                error_msg = f"Failed to disable passwordless sudo: {e!s}"
+                logger.error(f"[{request_id}] {error_msg}", exc_info=True)
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+        if name == "copy_file_to_device":
+            device_id = arguments.get("device_id")
+            local_path = arguments.get("local_path")
+            remote_path = arguments.get("remote_path")
+            username = arguments.get("username")
+            preserve_permissions = arguments.get("preserve_permissions", True)
+
+            if not device_id or not local_path or not remote_path:
+                error_msg = "device_id, local_path, and remote_path are required"
+                logger.error(f"[{request_id}] {error_msg}")
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+            try:
+                result = copy_file_to_device(
+                    device_id=device_id,
+                    local_path=local_path,
+                    remote_path=remote_path,
+                    username=username,
+                    preserve_permissions=preserve_permissions,
+                )
+                _record_tool_result(name, result, request_id, start_time)
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            except Exception as e:
+                error_msg = f"Failed to copy file: {e!s}"
+                logger.error(f"[{request_id}] {error_msg}", exc_info=True)
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+        if name == "copy_file_from_device":
+            device_id = arguments.get("device_id")
+            remote_path = arguments.get("remote_path")
+            local_path = arguments.get("local_path")
+            username = arguments.get("username")
+            preserve_permissions = arguments.get("preserve_permissions", True)
+
+            if not device_id or not remote_path or not local_path:
+                error_msg = "device_id, remote_path, and local_path are required"
+                logger.error(f"[{request_id}] {error_msg}")
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+            try:
+                result = copy_file_from_device(
+                    device_id=device_id,
+                    remote_path=remote_path,
+                    local_path=local_path,
+                    username=username,
+                    preserve_permissions=preserve_permissions,
+                )
+                _record_tool_result(name, result, request_id, start_time)
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            except Exception as e:
+                error_msg = f"Failed to copy file: {e!s}"
+                logger.error(f"[{request_id}] {error_msg}", exc_info=True)
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+        if name == "sync_directory_to_device":
+            device_id = arguments.get("device_id")
+            local_dir = arguments.get("local_dir")
+            remote_dir = arguments.get("remote_dir")
+            username = arguments.get("username")
+            exclude = arguments.get("exclude")
+            delete = arguments.get("delete", False)
+
+            if not device_id or not local_dir or not remote_dir:
+                error_msg = "device_id, local_dir, and remote_dir are required"
+                logger.error(f"[{request_id}] {error_msg}")
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+            try:
+                result = sync_directory_to_device(
+                    device_id=device_id,
+                    local_dir=local_dir,
+                    remote_dir=remote_dir,
+                    username=username,
+                    exclude=exclude,
+                    delete=delete,
+                )
+                _record_tool_result(name, result, request_id, start_time)
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            except Exception as e:
+                error_msg = f"Failed to sync directory: {e!s}"
+                logger.error(f"[{request_id}] {error_msg}", exc_info=True)
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+        if name == "copy_files_to_device_parallel":
+            device_id = arguments.get("device_id")
+            file_pairs = arguments.get("file_pairs")
+            username = arguments.get("username")
+            preserve_permissions = arguments.get("preserve_permissions", True)
+            max_workers = arguments.get("max_workers", 5)
+
+            if not device_id or not file_pairs:
+                error_msg = "device_id and file_pairs are required"
+                logger.error(f"[{request_id}] {error_msg}")
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+            # Validate file_pairs format
+            if not isinstance(file_pairs, list):
+                error_msg = "file_pairs must be a list of [local_path, remote_path] pairs"
+                logger.error(f"[{request_id}] {error_msg}")
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+            # Convert to list of tuples
+            try:
+                file_pairs_tuples = [(pair[0], pair[1]) for pair in file_pairs]
+            except (IndexError, TypeError):
+                error_msg = "file_pairs must be a list of [local_path, remote_path] pairs"
+                logger.error(f"[{request_id}] {error_msg}")
+                _record_tool_result(
+                    name, {"success": False, "error": error_msg}, request_id, start_time
+                )
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+
+            try:
+                result = copy_files_to_device_parallel(
+                    device_id=device_id,
+                    file_pairs=file_pairs_tuples,
+                    username=username,
+                    preserve_permissions=preserve_permissions,
+                    max_workers=max_workers,
+                )
+                _record_tool_result(name, result, request_id, start_time)
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            except Exception as e:
+                error_msg = f"Failed to copy files in parallel: {e!s}"
                 logger.error(f"[{request_id}] {error_msg}", exc_info=True)
                 _record_tool_result(
                     name, {"success": False, "error": error_msg}, request_id, start_time

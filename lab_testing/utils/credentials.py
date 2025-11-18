@@ -198,7 +198,8 @@ def install_ssh_key(device_ip: str, username: str, password: Optional[str] = Non
 
 def enable_passwordless_sudo(device_ip: str, username: str, password: Optional[str] = None) -> bool:
     """
-    Enable passwordless sudo on target device for debugging.
+    Enable passwordless sudo on target device for testing/debugging.
+    Creates a sudoers.d file and validates it with visudo before applying.
 
     Args:
         device_ip: Device IP address
@@ -206,9 +207,10 @@ def enable_passwordless_sudo(device_ip: str, username: str, password: Optional[s
         password: Sudo password (if needed for initial setup)
 
     Returns:
-        True if passwordless sudo was enabled
+        True if passwordless sudo was enabled successfully
     """
     sudo_config = f"{username} ALL=(ALL) NOPASSWD: ALL"
+    sudoers_file = f"/etc/sudoers.d/{username}"
 
     # Check if already configured
     check_cmd = [
@@ -217,8 +219,10 @@ def enable_passwordless_sudo(device_ip: str, username: str, password: Optional[s
         "BatchMode=yes",
         "-o",
         "ConnectTimeout=5",
+        "-o",
+        "StrictHostKeyChecking=no",
         f"{username}@{device_ip}",
-        f"sudo grep -q '{sudo_config}' /etc/sudoers.d/{username} 2>/dev/null && echo OK",
+        f"sudo test -f {sudoers_file} && sudo grep -q '{sudo_config}' {sudoers_file} 2>/dev/null && echo OK",
     ]
 
     try:
@@ -228,7 +232,28 @@ def enable_passwordless_sudo(device_ip: str, username: str, password: Optional[s
     except Exception:
         pass
 
-    # Install passwordless sudo config using sshpass if password provided
+    # Build command to create sudoers file with validation
+    # Use a script that validates with visudo before applying
+    # If password is provided, use sudo -S to pass password via stdin
+    if password:
+        # Escape password for shell (single quotes)
+        escaped_password = password.replace("'", "'\"'\"'")
+        setup_script = (
+            f"echo '{escaped_password}' | sudo -S bash -c \"echo '{sudo_config}' > {sudoers_file}\" && "
+            f"echo '{escaped_password}' | sudo -S chmod 440 {sudoers_file} && "
+            f"echo '{escaped_password}' | sudo -S visudo -c -f {sudoers_file} && "
+            f"echo 'SUCCESS'"
+        )
+    else:
+        # No password - assume passwordless sudo already works or will prompt
+        setup_script = (
+            f"echo '{sudo_config}' | sudo tee {sudoers_file} && "
+            f"sudo chmod 440 {sudoers_file} && "
+            f"sudo visudo -c -f {sudoers_file} && "
+            f"echo 'SUCCESS'"
+        )
+
+    # Build SSH command with appropriate authentication
     if password:
         # Check if sshpass is available
         try:
@@ -240,30 +265,150 @@ def enable_passwordless_sudo(device_ip: str, username: str, password: Optional[s
                 "ssh",
                 "-o",
                 "StrictHostKeyChecking=no",
+                "-o",
+                "ConnectTimeout=10",
                 f"{username}@{device_ip}",
-                f"echo '{sudo_config}' | sudo tee /etc/sudoers.d/{username} && sudo chmod 440 /etc/sudoers.d/{username}",
+                setup_script,
             ]
         except (subprocess.CalledProcessError, FileNotFoundError):
-            # sshpass not available, try interactive
+            # sshpass not available, try without password (may prompt)
             cmd = [
                 "ssh",
                 "-o",
                 "StrictHostKeyChecking=no",
+                "-o",
+                "ConnectTimeout=10",
                 f"{username}@{device_ip}",
-                f"echo '{sudo_config}' | sudo tee /etc/sudoers.d/{username} && sudo chmod 440 /etc/sudoers.d/{username}",
+                setup_script,
             ]
     else:
         cmd = [
             "ssh",
             "-o",
             "StrictHostKeyChecking=no",
+            "-o",
+            "ConnectTimeout=10",
             f"{username}@{device_ip}",
-            f"echo '{sudo_config}' | sudo tee /etc/sudoers.d/{username} && sudo chmod 440 /etc/sudoers.d/{username}",
+            setup_script,
         ]
 
     try:
         result = subprocess.run(cmd, check=False, capture_output=True, timeout=30)
-        return result.returncode == 0
+        # Check if visudo validation passed
+        if result.returncode == 0 and b"SUCCESS" in result.stdout:
+            return True
+        # If visudo failed, the file might have been created but is invalid
+        # Try to remove it
+        if result.returncode != 0:
+            _remove_sudoers_file(device_ip, username, password)
+    except Exception:
+        pass
+
+    return False
+
+
+def disable_passwordless_sudo(device_ip: str, username: str, password: Optional[str] = None) -> bool:
+    """
+    Disable passwordless sudo on target device (revert changes).
+    Removes the sudoers.d file that was created by enable_passwordless_sudo.
+
+    Args:
+        device_ip: Device IP address
+        username: SSH username
+        password: Sudo password (if needed)
+
+    Returns:
+        True if passwordless sudo was disabled successfully
+    """
+    return _remove_sudoers_file(device_ip, username, password)
+
+
+def _remove_sudoers_file(device_ip: str, username: str, password: Optional[str] = None) -> bool:
+    """
+    Internal helper to remove sudoers file.
+
+    Args:
+        device_ip: Device IP address
+        username: SSH username
+        password: Sudo password (if needed)
+
+    Returns:
+        True if file was removed successfully
+    """
+    sudoers_file = f"/etc/sudoers.d/{username}"
+
+    # Check if file exists
+    check_cmd = [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=5",
+        "-o",
+        "StrictHostKeyChecking=no",
+        f"{username}@{device_ip}",
+        f"sudo test -f {sudoers_file} && echo EXISTS || echo NOT_EXISTS",
+    ]
+
+    try:
+        result = subprocess.run(check_cmd, check=False, capture_output=True, timeout=10)
+        if b"NOT_EXISTS" in result.stdout:
+            # File doesn't exist, consider it already removed
+            return True
+    except Exception:
+        pass
+
+    # Remove the sudoers file
+    # If password is provided, use sudo -S to pass password via stdin
+    if password:
+        # Escape password for shell (single quotes)
+        escaped_password = password.replace("'", "'\"'\"'")
+        remove_script = (
+            f"echo '{escaped_password}' | sudo -S rm -f {sudoers_file} && echo 'REMOVED'"
+        )
+    else:
+        remove_script = f"sudo rm -f {sudoers_file} && echo 'REMOVED'"
+
+    # Build SSH command with appropriate authentication
+    if password:
+        try:
+            subprocess.run(["which", "sshpass"], capture_output=True, check=True)
+            cmd = [
+                "sshpass",
+                "-p",
+                password,
+                "ssh",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "ConnectTimeout=10",
+                f"{username}@{device_ip}",
+                remove_script,
+            ]
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            cmd = [
+                "ssh",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "ConnectTimeout=10",
+                f"{username}@{device_ip}",
+                remove_script,
+            ]
+    else:
+        cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "ConnectTimeout=10",
+            f"{username}@{device_ip}",
+            remove_script,
+        ]
+
+    try:
+        result = subprocess.run(cmd, check=False, capture_output=True, timeout=30)
+        return result.returncode == 0 and b"REMOVED" in result.stdout
     except Exception:
         return False
 

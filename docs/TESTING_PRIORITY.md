@@ -2,7 +2,9 @@
 
 **Purpose:** Remote hardware testing for embedded Linux and hardware development, including power monitoring, VPN access, and device management.
 
-**Last Updated:** 2025-01-XX
+**Core Mission:** Make remote embedded hardware development easy and accessible for engineers. This project prioritizes ease of use, helpful guidance, and best practices to enable seamless remote development workflows.
+
+**Last Updated:** 2025-11-18
 
 ## Testing Status Legend
 
@@ -33,6 +35,32 @@
 - [ ] Test device discovery on remote network
 - [ ] Test error handling (device offline, SSH failures)
 - [ ] Test caching behavior (force_refresh)
+
+### File Transfer Tools (CRITICAL for Remote Development)
+
+**Goal:** Enable building and deploying applications to remote devices efficiently.
+
+| Tool | Status | Priority | Notes | Test Scenarios |
+|------|--------|----------|-------|----------------|
+| `copy_file_to_device` | ✅ | P1 | Single file copy | - File transfer<br>- Multiplexed SSH<br>- Compression<br>- Permission preservation |
+| `copy_file_from_device` | ✅ | P1 | File download | - File download<br>- Multiplexed SSH<br>- Compression<br>- Content verification |
+| `sync_directory_to_device` | ⚠️ | P1 | Directory sync | - Requires rsync on device<br>- Multiple files<br>- Exclude patterns<br>- Delete option |
+| `copy_files_to_device_parallel` | ✅ | P1 | Parallel transfers | - Multiple files<br>- Shared SSH connection<br>- Concurrent transfers<br>- Error handling |
+
+**Testing Focus:**
+- ✅ Test single file copy (to/from device) - **DONE** (see docs/P1_FILE_TRANSFER_TESTING.md)
+- ✅ Test parallel file transfers - **DONE**
+- ⚠️ Test directory sync (requires rsync on device) - **PARTIAL** (rsync check added)
+- [ ] Test with large files (>100MB)
+- [ ] Test with many files (100+ files)
+- [ ] Test error handling (device offline, disk full, permission denied)
+- [ ] Test compression effectiveness on slow links
+- [ ] Test multiplexed SSH connection reuse
+
+**Known Limitations:**
+- `sync_directory_to_device` requires rsync installed on remote device
+- Many embedded Linux devices don't have rsync by default
+- Workaround: Use `copy_files_to_device_parallel` for multiple files
 
 ---
 

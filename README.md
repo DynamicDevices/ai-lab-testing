@@ -9,6 +9,26 @@ MCP server exposing remote embedded hardware testing capabilities to AI assistan
 
 **Version**: 0.4.0
 
+## Mission
+
+**Making remote embedded hardware development easy and accessible for engineers.**
+
+This project is designed to make remote hardware testing and development as seamless as possible. Engineers working remotely should be able to:
+
+- **Discover and connect** to lab devices effortlessly
+- **Set up secure access** (SSH keys, passwordless sudo) with minimal friction
+- **Run commands and tests** on remote boards without complex setup
+- **Build and deploy** applications to remote devices
+- **Clean up securely** when finished
+
+The MCP server provides intelligent tooling that guides engineers through best practices, suggests next steps, and handles common workflows automatically. When problems occur, the tools provide actionable suggestions and clear next steps.
+
+**Key Design Principles:**
+- **Ease of Use**: Tools should be intuitive and require minimal configuration
+- **Helpful Guidance**: Error messages include suggestions and next steps
+- **Best Practices**: Tools guide users toward secure, maintainable workflows
+- **Remote-First**: Optimized for engineers working remotely via VPN
+
 > **⚠️ ALPHA QUALITY WARNING**: This package is currently in **alpha** development status. It is **not ready for professional or production use**. The API may change, features may be incomplete, and there may be bugs. Use at your own risk. See [PUBLISHING.md](PUBLISHING.md) for more details.
 
 ## Installation

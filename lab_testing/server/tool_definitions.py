@@ -727,4 +727,186 @@ def get_all_tools() -> List[Tool]:
                 "required": ["device_id"],
             },
         ),
+        Tool(
+            name="enable_passwordless_sudo",
+            description="Enable passwordless sudo on a device for testing/debugging. Creates a sudoers.d file that allows the SSH user to use sudo without a password. Validates the sudoers file with visudo before applying. Use disable_passwordless_sudo to revert changes when testing is finished.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (device_id or friendly_name). Use 'list_devices' to see available options.",
+                    },
+                    "username": {
+                        "type": "string",
+                        "description": "SSH username (optional, uses device default from config)",
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "Password for sudo access (if needed, uses cached/default if available)",
+                    },
+                },
+                "required": ["device_id"],
+            },
+        ),
+        Tool(
+            name="disable_passwordless_sudo",
+            description="Disable passwordless sudo on a device (revert changes). Removes the sudoers.d file that was created by enable_passwordless_sudo. Use this when testing is finished to restore normal sudo behavior.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (device_id or friendly_name). Use 'list_devices' to see available options.",
+                    },
+                    "username": {
+                        "type": "string",
+                        "description": "SSH username (optional, uses device default from config)",
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "Password for sudo access (if needed, uses cached/default if available)",
+                    },
+                },
+                "required": ["device_id"],
+            },
+        ),
+        Tool(
+            name="copy_file_to_device",
+            description="Copy a file from local machine to remote device. Optimized for speed using multiplexed SSH connections (ControlMaster). Supports compression for faster transfers over slow links. Best practice: Use sync_directory_to_device for multiple files or directories.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (device_id or friendly_name). Use 'list_devices' to see available options.",
+                    },
+                    "local_path": {
+                        "type": "string",
+                        "description": "Local file path to copy",
+                    },
+                    "remote_path": {
+                        "type": "string",
+                        "description": "Remote destination path on device",
+                    },
+                    "username": {
+                        "type": "string",
+                        "description": "SSH username (optional, uses device default from config)",
+                    },
+                    "preserve_permissions": {
+                        "type": "boolean",
+                        "description": "Preserve file permissions and timestamps (default: true)",
+                        "default": True,
+                    },
+                },
+                "required": ["device_id", "local_path", "remote_path"],
+            },
+        ),
+        Tool(
+            name="copy_file_from_device",
+            description="Copy a file from remote device to local machine. Optimized for speed using multiplexed SSH connections (ControlMaster). Supports compression for faster transfers over slow links.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (device_id or friendly_name). Use 'list_devices' to see available options.",
+                    },
+                    "remote_path": {
+                        "type": "string",
+                        "description": "Remote file path on device",
+                    },
+                    "local_path": {
+                        "type": "string",
+                        "description": "Local destination path",
+                    },
+                    "username": {
+                        "type": "string",
+                        "description": "SSH username (optional, uses device default from config)",
+                    },
+                    "preserve_permissions": {
+                        "type": "boolean",
+                        "description": "Preserve file permissions and timestamps (default: true)",
+                        "default": True,
+                    },
+                },
+                "required": ["device_id", "remote_path", "local_path"],
+            },
+        ),
+        Tool(
+            name="sync_directory_to_device",
+            description="Sync a local directory to remote device using rsync. Much faster than copying individual files. Optimized for speed using multiplexed SSH connections. Supports exclude patterns and delete option. Best practice: Use this for deploying applications or syncing project directories.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (device_id or friendly_name). Use 'list_devices' to see available options.",
+                    },
+                    "local_dir": {
+                        "type": "string",
+                        "description": "Local directory to sync",
+                    },
+                    "remote_dir": {
+                        "type": "string",
+                        "description": "Remote destination directory on device",
+                    },
+                    "username": {
+                        "type": "string",
+                        "description": "SSH username (optional, uses device default from config)",
+                    },
+                    "exclude": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of patterns to exclude (e.g., ['*.pyc', '__pycache__', '.git'])",
+                    },
+                    "delete": {
+                        "type": "boolean",
+                        "description": "Delete files on remote that don't exist locally (default: false)",
+                        "default": False,
+                    },
+                },
+                "required": ["device_id", "local_dir", "remote_dir"],
+            },
+        ),
+        Tool(
+            name="copy_files_to_device_parallel",
+            description="Copy multiple files to remote device in parallel using multiplexed SSH connections. Much faster than copying files sequentially - all transfers share the same SSH connection. Best practice: Use this when copying multiple files at once (e.g., deploying an application with multiple binaries/configs).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (device_id or friendly_name). Use 'list_devices' to see available options.",
+                    },
+                    "file_pairs": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "minItems": 2,
+                            "maxItems": 2,
+                        },
+                        "description": "List of [local_path, remote_path] pairs to copy",
+                    },
+                    "username": {
+                        "type": "string",
+                        "description": "SSH username (optional, uses device default from config)",
+                    },
+                    "preserve_permissions": {
+                        "type": "boolean",
+                        "description": "Preserve file permissions and timestamps (default: true)",
+                        "default": True,
+                    },
+                    "max_workers": {
+                        "type": "integer",
+                        "description": "Maximum number of parallel transfers (default: 5)",
+                        "default": 5,
+                        "minimum": 1,
+                        "maximum": 20,
+                    },
+                },
+                "required": ["device_id", "file_pairs"],
+            },
+        ),
     ]

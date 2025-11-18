@@ -81,11 +81,11 @@ class TestListDevices:
             for d in devices
         )
         # Check that embedded_board devices exist (may be in same category if detection overrides)
-        all_devices = [
-            d for devices in result["devices_by_type"].values() for d in devices
-        ]
+        all_devices = [d for devices in result["devices_by_type"].values() for d in devices]
         embedded_boards = [d for d in all_devices if d.get("device_type") == "embedded_board"]
-        assert len(embedded_boards) == 2, f"Expected 2 embedded_board devices, found {len(embedded_boards)}"
+        assert (
+            len(embedded_boards) == 2
+        ), f"Expected 2 embedded_board devices, found {len(embedded_boards)}"
 
 
 class TestTestDevice:

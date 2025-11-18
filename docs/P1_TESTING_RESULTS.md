@@ -199,9 +199,9 @@
 
 ## Summary
 
-**Total Tests:** 24/24 completed (15 core + 9 credential tools)  
-**Passed:** 22  
-**Partial:** 1  
+**Total Tests:** 34/34 completed (15 core + 9 credential unit tests + 10 real device tests)  
+**Passed:** 32 ✅  
+**Partial:** 1 ⚠️  
 **Pending:** 1 (DHCP scenarios - requires specific test environment)  
 
 ### Completed Tests ✅
@@ -211,9 +211,10 @@
 - ✅ `create_network_map` - Quick mode, full scan mode, PNG rendering, device relationships all work
 - ✅ VPN Connected/Disconnected - All tools handle VPN states correctly
 - ✅ Credential Management Tools - All 3 tools tested and working (see docs/P1_CREDENTIAL_TOOLS_TESTING.md)
-  - ✅ `cache_device_credentials` - Caches credentials successfully
-  - ✅ `check_ssh_key_status` - Checks SSH key status correctly
-  - ✅ `install_ssh_key` - Installs SSH keys (logic verified, requires real device for full test)
+  - ✅ `cache_device_credentials` - Caches credentials successfully (unit + real device tested)
+  - ✅ `check_ssh_key_status` - Checks SSH key status correctly (unit + real device tested)
+  - ✅ `install_ssh_key` - Installs SSH keys successfully (unit + real device tested)
+  - ✅ Real Device Testing Complete - All tools verified with actual hardware (see docs/P1_REAL_DEVICE_CREDENTIAL_TESTING.md)
 
 ### Pending Tests ⏳
 - ⏳ DHCP device IP change scenarios (requires specific test environment with DHCP devices)
@@ -237,4 +238,5 @@
 5. ⏳ Test DHCP device IP change scenarios (requires DHCP test environment)
 6. ✅ Test new credential management tools (cache_device_credentials, check_ssh_key_status, install_ssh_key) - DONE (see docs/P1_CREDENTIAL_TOOLS_TESTING.md)
 7. ✅ Document SSH key setup requirements - DONE (see docs/SSH_AUTHENTICATION.md)
+8. ✅ Real device testing of credential management tools - DONE (see docs/P1_REAL_DEVICE_CREDENTIAL_TESTING.md)
 

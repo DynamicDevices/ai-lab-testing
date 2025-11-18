@@ -11,6 +11,8 @@ from lab_testing.tools.device_manager import load_device_config, resolve_device_
 from lab_testing.utils.credentials import (
     cache_credential,
     check_ssh_key_installed,
+    disable_passwordless_sudo,
+    enable_passwordless_sudo,
     get_credential,
     install_ssh_key,
 )
@@ -58,6 +60,13 @@ def cache_device_credentials(
             f"Cached {credential_type} credentials for {resolved_device_id} (username: {username})"
         )
 
+        next_steps = [
+            "Credentials are now cached securely",
+            "Install SSH key: install_ssh_key(device_id)",
+        ]
+        if credential_type == "ssh":
+            next_steps.append("Then enable passwordless sudo: enable_passwordless_sudo(device_id)")
+        
         return {
             "success": True,
             "device_id": resolved_device_id,
@@ -65,6 +74,7 @@ def cache_device_credentials(
             "username": username,
             "credential_type": credential_type,
             "message": f"Credentials cached successfully for {resolved_device_id}",
+            "next_steps": next_steps,
         }
 
     except Exception as e:
@@ -139,6 +149,24 @@ def check_ssh_key_status(device_id: str, username: Optional[str] = None) -> Dict
         ]
         default_key_exists = any(path.exists() for path in ssh_key_paths)
 
+        message = (
+            "SSH key authentication is working"
+            if key_installed
+            else "SSH key authentication is not working (use install_ssh_key to install)"
+        )
+        
+        next_steps = []
+        if not key_installed:
+            next_steps = [
+                "Install SSH key: install_ssh_key(device_id)",
+                "Cache credentials first if needed: cache_device_credentials(device_id, username, password)",
+            ]
+        else:
+            next_steps = [
+                "SSH key is working - you can use ssh_to_device without password",
+                "Consider enabling passwordless sudo: enable_passwordless_sudo(device_id)",
+            ]
+        
         return {
             "success": True,
             "device_id": resolved_device_id,
@@ -147,11 +175,8 @@ def check_ssh_key_status(device_id: str, username: Optional[str] = None) -> Dict
             "username": username,
             "key_installed": key_installed,
             "default_key_exists": default_key_exists,
-            "message": (
-                "SSH key authentication is working"
-                if key_installed
-                else "SSH key authentication is not working (use install_ssh_key to install)"
-            ),
+            "message": message,
+            "next_steps": next_steps,
         }
 
     except Exception as e:
@@ -263,6 +288,11 @@ def install_ssh_key_on_device(
                 "username": username,
                 "key_installed": True,
                 "message": "SSH key installed successfully",
+                "next_steps": [
+                    "You can now SSH without a password",
+                    "Test with: ssh_to_device(device_id, 'whoami')",
+                    "Consider enabling passwordless sudo: enable_passwordless_sudo(device_id)",
+                ],
             }
         return {
             "success": False,
@@ -274,6 +304,210 @@ def install_ssh_key_on_device(
 
     except Exception as e:
         error_msg = f"Failed to install SSH key: {e!s}"
+        logger.error(error_msg, exc_info=True)
+        return {
+            "success": False,
+            "error": error_msg,
+            "device_id": resolved_device_id,
+        }
+
+
+def enable_passwordless_sudo_on_device(
+    device_id: str, username: Optional[str] = None, password: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Enable passwordless sudo on a device for testing/debugging.
+    Creates a sudoers.d file that allows the SSH user to use sudo without a password.
+    Validates the sudoers file with visudo before applying.
+
+    Args:
+        device_id: Device identifier (device_id or friendly_name)
+        username: SSH username (optional, uses device default)
+        password: Password for sudo access (if needed, uses cached/default if available)
+
+    Returns:
+        Dictionary with operation results
+    """
+    # Resolve to actual device_id
+    resolved_device_id = resolve_device_identifier(device_id)
+    if not resolved_device_id:
+        error_msg = f"Device '{device_id}' not found"
+        logger.error(error_msg)
+        return {
+            "success": False,
+            "error": error_msg,
+            "device_id": device_id,
+        }
+
+    config = load_device_config()
+    devices = config.get("devices", {})
+    device = devices.get(resolved_device_id)
+
+    if not device:
+        error_msg = f"Device '{resolved_device_id}' not found in config"
+        logger.error(error_msg)
+        return {
+            "success": False,
+            "error": error_msg,
+            "device_id": resolved_device_id,
+        }
+
+    ip = device.get("ip")
+    if not ip:
+        error_msg = f"Device '{resolved_device_id}' has no IP address"
+        logger.error(error_msg)
+        return {
+            "success": False,
+            "error": error_msg,
+            "device_id": resolved_device_id,
+        }
+
+    # Determine username
+    if not username:
+        username = device.get("ssh_user", "root")
+
+    # Get password if not provided (try cached/default credentials)
+    if not password:
+        cred = get_credential(resolved_device_id, "ssh")
+        if cred and cred.get("password"):
+            password = cred["password"]
+            # Use username from credential if available
+            if cred.get("username"):
+                username = cred["username"]
+
+    try:
+        # Enable passwordless sudo
+        success = enable_passwordless_sudo(ip, username, password)
+
+        if success:
+            logger.info(
+                f"Successfully enabled passwordless sudo on {resolved_device_id} ({ip}) for user {username}"
+            )
+            return {
+                "success": True,
+                "device_id": resolved_device_id,
+                "friendly_name": device.get("friendly_name")
+                or device.get("name", resolved_device_id),
+                "ip": ip,
+                "username": username,
+                "message": f"Passwordless sudo enabled successfully for {username}",
+                "next_steps": [
+                    "You can now run sudo commands without a password",
+                    "Test with: ssh_to_device(device_id, 'sudo whoami')",
+                    "Remember to disable when finished: disable_passwordless_sudo(device_id)",
+                ],
+            }
+        return {
+            "success": False,
+            "error": "Failed to enable passwordless sudo. Check password, SSH access, and sudo permissions.",
+            "device_id": resolved_device_id,
+            "ip": ip,
+            "username": username,
+        }
+
+    except Exception as e:
+        error_msg = f"Failed to enable passwordless sudo: {e!s}"
+        logger.error(error_msg, exc_info=True)
+        return {
+            "success": False,
+            "error": error_msg,
+            "device_id": resolved_device_id,
+        }
+
+
+def disable_passwordless_sudo_on_device(
+    device_id: str, username: Optional[str] = None, password: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Disable passwordless sudo on a device (revert changes).
+    Removes the sudoers.d file that was created by enable_passwordless_sudo.
+
+    Args:
+        device_id: Device identifier (device_id or friendly_name)
+        username: SSH username (optional, uses device default)
+        password: Password for sudo access (if needed, uses cached/default if available)
+
+    Returns:
+        Dictionary with operation results
+    """
+    # Resolve to actual device_id
+    resolved_device_id = resolve_device_identifier(device_id)
+    if not resolved_device_id:
+        error_msg = f"Device '{device_id}' not found"
+        logger.error(error_msg)
+        return {
+            "success": False,
+            "error": error_msg,
+            "device_id": device_id,
+        }
+
+    config = load_device_config()
+    devices = config.get("devices", {})
+    device = devices.get(resolved_device_id)
+
+    if not device:
+        error_msg = f"Device '{resolved_device_id}' not found in config"
+        logger.error(error_msg)
+        return {
+            "success": False,
+            "error": error_msg,
+            "device_id": resolved_device_id,
+        }
+
+    ip = device.get("ip")
+    if not ip:
+        error_msg = f"Device '{resolved_device_id}' has no IP address"
+        logger.error(error_msg)
+        return {
+            "success": False,
+            "error": error_msg,
+            "device_id": resolved_device_id,
+        }
+
+    # Determine username
+    if not username:
+        username = device.get("ssh_user", "root")
+
+    # Get password if not provided (try cached/default credentials)
+    if not password:
+        cred = get_credential(resolved_device_id, "ssh")
+        if cred and cred.get("password"):
+            password = cred["password"]
+            # Use username from credential if available
+            if cred.get("username"):
+                username = cred["username"]
+
+    try:
+        # Disable passwordless sudo
+        success = disable_passwordless_sudo(ip, username, password)
+
+        if success:
+            logger.info(
+                f"Successfully disabled passwordless sudo on {resolved_device_id} ({ip}) for user {username}"
+            )
+            return {
+                "success": True,
+                "device_id": resolved_device_id,
+                "friendly_name": device.get("friendly_name")
+                or device.get("name", resolved_device_id),
+                "ip": ip,
+                "username": username,
+                "message": f"Passwordless sudo disabled successfully for {username}",
+                "next_steps": [
+                    "Sudo now requires password again (security restored)",
+                    "Verify with: ssh_to_device(device_id, 'sudo -n whoami') should fail",
+                ],
+            }
+        return {
+            "success": False,
+            "error": "Failed to disable passwordless sudo. Check SSH access and sudo permissions.",
+            "device_id": resolved_device_id,
+            "ip": ip,
+            "username": username,
+        }
+
+    except Exception as e:
+        error_msg = f"Failed to disable passwordless sudo: {e!s}"
         logger.error(error_msg, exc_info=True)
         return {
             "success": False,

@@ -6,7 +6,7 @@ install:
 	pre-commit install
 
 test:
-	python3 test_server.py
+	python3 -m pytest tests/ -v
 
 lint:
 	ruff check .

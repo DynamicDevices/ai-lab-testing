@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ai-lab-testing"
 version = "0.4.0"
-description = "MCP server for remote embedded hardware testing"
+description = "MCP server for remote embedded hardware testing. Making remote embedded hardware development easy and accessible for engineers. Provides intelligent tooling with helpful guidance, best practices, and automated workflows."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "GPL-3.0-or-later"}
@@ -15,13 +15,16 @@ authors = [
 maintainers = [
     {name = "Alex J Lennon", email = "ajlennon@dynamicdevices.co.uk"}
 ]
-keywords = ["mcp", "model-context-protocol", "embedded", "hardware", "testing", "remote", "iot", "lab", "automation"]
+keywords = ["mcp", "model-context-protocol", "embedded", "hardware", "testing", "remote", "iot", "lab", "automation", "remote-development", "ssh", "vpn", "wireguard", "foundries", "embedded-linux"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Hardware",
     "Topic :: System :: Networking",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Software Development :: Testing",
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -38,6 +41,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/DynamicDevices/ai-lab-testing"
 Documentation = "https://github.com/DynamicDevices/ai-lab-testing/blob/main/README.md"
+"Remote Development Guide" = "https://github.com/DynamicDevices/ai-lab-testing/blob/main/docs/REMOTE_DEVELOPMENT_GUIDE.md"
 Repository = "https://github.com/DynamicDevices/ai-lab-testing"
 Issues = "https://github.com/DynamicDevices/ai-lab-testing/issues"
 "Changelog" = "https://github.com/DynamicDevices/ai-lab-testing/blob/main/CHANGELOG.md"

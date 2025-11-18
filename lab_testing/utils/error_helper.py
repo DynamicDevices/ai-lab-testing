@@ -81,9 +81,11 @@ def get_general_suggestions(
     if "auth" in error_msg or "permission" in error_msg or "denied" in error_msg:
         suggestions.extend(
             [
-                "Check SSH key configuration in device config",
-                "Verify SSH credentials are cached (system handles this automatically)",
-                "Check if passwordless sudo is enabled on target device",
+                "Check SSH key status: 'check_ssh_key_status(device_id)'",
+                "Install SSH key if needed: 'install_ssh_key(device_id)'",
+                "Cache credentials first: 'cache_device_credentials(device_id, username, password)'",
+                "Check if passwordless sudo is enabled: 'enable_passwordless_sudo(device_id)' if needed",
+                "Verify device is online: 'test_device(device_id)'",
                 "Review device configuration for SSH user and port settings",
             ]
         )
