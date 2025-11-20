@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from lab_testing.exceptions import DeviceNotFoundError
 from lab_testing.tools.device_manager import load_device_config, resolve_device_identifier
 from lab_testing.utils.credentials import get_credential
+from lab_testing.utils.device_access import _get_vpn_server_connection_info, get_unified_device_info
 from lab_testing.utils.logger import get_logger
 from lab_testing.utils.ssh_pool import get_persistent_ssh_connection
 
@@ -61,8 +62,11 @@ def copy_file_to_device(
     """
     Copy a file from local machine to remote device.
 
+    Supports both Foundries devices (via VPN IP) and local config devices.
+    Automatically falls back to VPN server connection for Foundries devices if direct connection fails.
+
     Args:
-        device_id: Device identifier (device_id or friendly_name)
+        device_id: Device identifier (Foundries device name or local device ID)
         local_path: Local file path to copy
         remote_path: Remote destination path on device
         username: SSH username (optional, uses device default)
@@ -71,10 +75,18 @@ def copy_file_to_device(
     Returns:
         Dictionary with operation results
     """
-    # Resolve to actual device_id
-    resolved_device_id = resolve_device_identifier(device_id)
-    if not resolved_device_id:
-        error_msg = f"Device '{device_id}' not found"
+    # Use unified device access to get device info (works for both Foundries and local devices)
+    device_info = get_unified_device_info(device_id)
+    if "error" in device_info:
+        return {
+            "success": False,
+            "error": device_info["error"],
+            "device_id": device_id,
+        }
+
+    ip = device_info.get("ip")
+    if not ip:
+        error_msg = f"Device '{device_id}' has no IP address"
         logger.error(error_msg)
         return {
             "success": False,
@@ -82,28 +94,8 @@ def copy_file_to_device(
             "device_id": device_id,
         }
 
-    config = load_device_config()
-    devices = config.get("devices", {})
-    device = devices.get(resolved_device_id)
-
-    if not device:
-        error_msg = f"Device '{resolved_device_id}' not found in config"
-        logger.error(error_msg)
-        return {
-            "success": False,
-            "error": error_msg,
-            "device_id": resolved_device_id,
-        }
-
-    ip = device.get("ip")
-    if not ip:
-        error_msg = f"Device '{resolved_device_id}' has no IP address"
-        logger.error(error_msg)
-        return {
-            "success": False,
-            "error": error_msg,
-            "device_id": resolved_device_id,
-        }
+    device_type = device_info.get("device_type", "unknown")
+    resolved_device_id = device_info.get("device_id", device_id)
 
     # Check local file exists
     local_file = Path(local_path)
@@ -127,18 +119,22 @@ def copy_file_to_device(
 
     # Determine username
     if not username:
-        username = device.get("ssh_user", "root")
-        # Try to get from cached credentials
-        cred = get_credential(resolved_device_id, "ssh")
-        if cred and cred.get("username"):
-            username = cred["username"]
+        username = device_info.get("username", "root")
+        # Try to get from cached credentials for local devices
+        if device_type == "local":
+            cred = get_credential(resolved_device_id, "ssh")
+            if cred and cred.get("username"):
+                username = cred["username"]
 
-    ssh_port = device.get("ssh_port", 22)
+    ssh_port = device_info.get("ssh_port", 22)
 
     try:
-        # Get or create multiplexed SSH connection for faster transfers
+        # Get or create multiplexed SSH connection for faster transfers (only for local devices)
+        # Foundries devices may need VPN server fallback, so skip multiplexing for them initially
         control_path = f"/tmp/ssh_mcp_{resolved_device_id}_{ip.replace('.', '_')}"
-        master = get_persistent_ssh_connection(ip, username, resolved_device_id, ssh_port)
+        master = None
+        if device_type == "local":
+            master = get_persistent_ssh_connection(ip, username, resolved_device_id, ssh_port)
 
         # Build scp command with ControlMaster for multiplexing
         scp_cmd = ["scp"]
@@ -172,17 +168,22 @@ def copy_file_to_device(
             return {
                 "success": True,
                 "device_id": resolved_device_id,
-                "friendly_name": device.get("friendly_name")
-                or device.get("name", resolved_device_id),
+                "device_type": device_type,
+                "connection_method": "direct",
                 "ip": ip,
                 "local_path": str(local_path),
                 "remote_path": remote_path,
                 "message": f"File copied successfully to {remote_path}",
-                "next_steps": [
-                    f"Verify file on device: ssh_to_device(device_id, 'ls -lh {remote_path}')",
-                    f"Check file contents: ssh_to_device(device_id, 'cat {remote_path}')",
-                ],
             }
+
+        # If direct connection failed and this is a Foundries device, try VPN server fallback
+        if device_type == "foundries":
+            logger.debug(
+                f"Direct scp failed for Foundries device {device_id}, trying VPN server fallback"
+            )
+            return _copy_file_to_device_via_vpn_server(
+                device_info, local_path, remote_path, username, preserve_permissions
+            )
 
         actual_error = _extract_scp_error(result.stderr.strip() if result.stderr else "")
         error_msg = f"Failed to copy file: {actual_error}"
@@ -191,6 +192,8 @@ def copy_file_to_device(
             "success": False,
             "error": error_msg,
             "device_id": resolved_device_id,
+            "device_type": device_type,
+            "connection_method": "direct",
             "local_path": str(local_path),
             "remote_path": remote_path,
             "suggestions": [
@@ -218,6 +221,128 @@ def copy_file_to_device(
         }
 
 
+def _copy_file_to_device_via_vpn_server(
+    device_info: Dict[str, Any],
+    local_path: str,
+    remote_path: str,
+    username: str,
+    preserve_permissions: bool,
+) -> Dict[str, Any]:
+    """
+    Copy file to Foundries device through VPN server (fallback when direct connection fails).
+
+    Args:
+        device_info: Device information dictionary from unified device access
+        local_path: Local file path to copy
+        remote_path: Remote destination path on device
+        username: SSH username for device
+        preserve_permissions: Preserve file permissions
+
+    Returns:
+        Dictionary with operation results
+    """
+    device_ip = device_info["ip"]
+    device_id = device_info["device_id"]
+    device_password = "fio"  # Default Foundries device password
+
+    # Get VPN server connection info
+    server_info = _get_vpn_server_connection_info()
+    server_host = server_info["server_host"]
+    server_port = server_info["server_port"]
+    server_user = server_info["server_user"]
+    server_password = server_info["server_password"]
+
+    logger.debug(
+        f"Copying file to Foundries device {device_id} ({device_ip}) through VPN server {server_host}:{server_port}"
+    )
+
+    local_file = Path(local_path)
+    if not local_file.exists():
+        return {
+            "success": False,
+            "error": f"Local file not found: {local_path}",
+            "device_id": device_id,
+            "connection_method": "through_vpn_server",
+        }
+
+    try:
+        # Use scp with ProxyJump to copy through VPN server
+        # Format: scp -o ProxyJump="server" local_file user@device:remote_path
+        scp_cmd = ["scp"]
+
+        # Add ProxyJump option for VPN server
+        proxy_jump = f"{server_user}@{server_host}:{server_port}"
+        scp_cmd.extend(["-o", f"ProxyJump={proxy_jump}"])
+        scp_cmd.extend(["-o", "StrictHostKeyChecking=no"])
+        scp_cmd.extend(["-o", "UserKnownHostsFile=/dev/null"])
+
+        # Add server password if needed
+        if server_password:
+            scp_cmd = ["sshpass", "-p", server_password] + scp_cmd
+
+        # Preserve permissions if requested
+        if preserve_permissions:
+            scp_cmd.append("-p")
+
+        # Add compression
+        scp_cmd.append("-C")
+
+        # Add source and destination
+        scp_cmd.append(str(local_file))
+        scp_cmd.append(f"{username}@{device_ip}:{remote_path}")
+
+        # Execute scp through VPN server
+        result = subprocess.run(scp_cmd, check=False, capture_output=True, text=True, timeout=120)
+
+        if result.returncode == 0:
+            logger.info(
+                f"Successfully copied {local_path} to {device_id}:{remote_path} via VPN server"
+            )
+            return {
+                "success": True,
+                "device_id": device_id,
+                "device_type": device_info.get("device_type", "foundries"),
+                "connection_method": "through_vpn_server",
+                "ip": device_ip,
+                "local_path": str(local_path),
+                "remote_path": remote_path,
+                "message": f"File copied successfully to {remote_path} via VPN server",
+            }
+
+        actual_error = _extract_scp_error(result.stderr.strip() if result.stderr else "")
+        error_msg = f"Failed to copy file via VPN server: {actual_error}"
+        logger.error(error_msg)
+        return {
+            "success": False,
+            "error": error_msg,
+            "device_id": device_id,
+            "device_type": device_info.get("device_type", "foundries"),
+            "connection_method": "through_vpn_server",
+            "local_path": str(local_path),
+            "remote_path": remote_path,
+            "suggestions": [
+                "Check VPN server connectivity",
+                "Verify device is reachable from VPN server",
+                "Check device-to-device communication is enabled",
+            ],
+        }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "error": "File copy via VPN server timed out (120 seconds)",
+            "device_id": device_id,
+            "connection_method": "through_vpn_server",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to copy file via VPN server: {e!s}",
+            "device_id": device_id,
+            "connection_method": "through_vpn_server",
+        }
+
+
 def copy_file_from_device(
     device_id: str,
     remote_path: str,
@@ -228,8 +353,11 @@ def copy_file_from_device(
     """
     Copy a file from remote device to local machine.
 
+    Supports both Foundries devices (via VPN IP) and local config devices.
+    Automatically falls back to VPN server connection for Foundries devices if direct connection fails.
+
     Args:
-        device_id: Device identifier (device_id or friendly_name)
+        device_id: Device identifier (Foundries device name or local device ID)
         remote_path: Remote file path on device
         local_path: Local destination path
         username: SSH username (optional, uses device default)
@@ -238,10 +366,18 @@ def copy_file_from_device(
     Returns:
         Dictionary with operation results
     """
-    # Resolve to actual device_id
-    resolved_device_id = resolve_device_identifier(device_id)
-    if not resolved_device_id:
-        error_msg = f"Device '{device_id}' not found"
+    # Use unified device access to get device info (works for both Foundries and local devices)
+    device_info = get_unified_device_info(device_id)
+    if "error" in device_info:
+        return {
+            "success": False,
+            "error": device_info["error"],
+            "device_id": device_id,
+        }
+
+    ip = device_info.get("ip")
+    if not ip:
+        error_msg = f"Device '{device_id}' has no IP address"
         logger.error(error_msg)
         return {
             "success": False,
@@ -249,47 +385,31 @@ def copy_file_from_device(
             "device_id": device_id,
         }
 
-    config = load_device_config()
-    devices = config.get("devices", {})
-    device = devices.get(resolved_device_id)
-
-    if not device:
-        error_msg = f"Device '{resolved_device_id}' not found in config"
-        logger.error(error_msg)
-        return {
-            "success": False,
-            "error": error_msg,
-            "device_id": resolved_device_id,
-        }
-
-    ip = device.get("ip")
-    if not ip:
-        error_msg = f"Device '{resolved_device_id}' has no IP address"
-        logger.error(error_msg)
-        return {
-            "success": False,
-            "error": error_msg,
-            "device_id": resolved_device_id,
-        }
+    device_type = device_info.get("device_type", "unknown")
+    resolved_device_id = device_info.get("device_id", device_id)
 
     # Determine username
     if not username:
-        username = device.get("ssh_user", "root")
-        # Try to get from cached credentials
-        cred = get_credential(resolved_device_id, "ssh")
-        if cred and cred.get("username"):
-            username = cred["username"]
+        username = device_info.get("username", "root")
+        # Try to get from cached credentials for local devices
+        if device_type == "local":
+            cred = get_credential(resolved_device_id, "ssh")
+            if cred and cred.get("username"):
+                username = cred["username"]
 
-    ssh_port = device.get("ssh_port", 22)
+    ssh_port = device_info.get("ssh_port", 22)
 
     # Ensure local directory exists
     local_file = Path(local_path)
     local_file.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        # Get or create multiplexed SSH connection for faster transfers
+        # Get or create multiplexed SSH connection for faster transfers (only for local devices)
+        # Foundries devices may need VPN server fallback, so skip multiplexing for them initially
         control_path = f"/tmp/ssh_mcp_{resolved_device_id}_{ip.replace('.', '_')}"
-        master = get_persistent_ssh_connection(ip, username, resolved_device_id, ssh_port)
+        master = None
+        if device_type == "local":
+            master = get_persistent_ssh_connection(ip, username, resolved_device_id, ssh_port)
 
         # Build scp command with ControlMaster for multiplexing
         scp_cmd = ["scp"]
@@ -325,17 +445,22 @@ def copy_file_from_device(
             return {
                 "success": True,
                 "device_id": resolved_device_id,
-                "friendly_name": device.get("friendly_name")
-                or device.get("name", resolved_device_id),
+                "device_type": device_type,
+                "connection_method": "direct",
                 "ip": ip,
                 "remote_path": remote_path,
                 "local_path": str(local_file),
                 "message": f"File copied successfully to {local_path}",
-                "next_steps": [
-                    f"File is available locally at: {local_path}",
-                    f"Check file: cat {local_path}",
-                ],
             }
+
+        # If direct connection failed and this is a Foundries device, try VPN server fallback
+        if device_type == "foundries":
+            logger.debug(
+                f"Direct scp failed for Foundries device {device_id}, trying VPN server fallback"
+            )
+            return _copy_file_from_device_via_vpn_server(
+                device_info, remote_path, local_path, username, preserve_permissions
+            )
 
         actual_error = _extract_scp_error(result.stderr.strip() if result.stderr else "")
         error_msg = f"Failed to copy file: {actual_error}"
@@ -344,6 +469,8 @@ def copy_file_from_device(
             "success": False,
             "error": error_msg,
             "device_id": resolved_device_id,
+            "device_type": device_type,
+            "connection_method": "direct",
             "remote_path": remote_path,
             "local_path": str(local_path),
             "suggestions": [
@@ -371,6 +498,122 @@ def copy_file_from_device(
         }
 
 
+def _copy_file_from_device_via_vpn_server(
+    device_info: Dict[str, Any],
+    remote_path: str,
+    local_path: str,
+    username: str,
+    preserve_permissions: bool,
+) -> Dict[str, Any]:
+    """
+    Copy file from Foundries device through VPN server (fallback when direct connection fails).
+
+    Args:
+        device_info: Device information dictionary from unified device access
+        remote_path: Remote file path on device
+        local_path: Local destination path
+        username: SSH username for device
+        preserve_permissions: Preserve file permissions
+
+    Returns:
+        Dictionary with operation results
+    """
+    device_ip = device_info["ip"]
+    device_id = device_info["device_id"]
+    device_password = "fio"  # Default Foundries device password
+
+    # Get VPN server connection info
+    server_info = _get_vpn_server_connection_info()
+    server_host = server_info["server_host"]
+    server_port = server_info["server_port"]
+    server_user = server_info["server_user"]
+    server_password = server_info["server_password"]
+
+    logger.debug(
+        f"Copying file from Foundries device {device_id} ({device_ip}) through VPN server {server_host}:{server_port}"
+    )
+
+    local_file = Path(local_path)
+    local_file.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        # Use scp with ProxyJump to copy through VPN server
+        scp_cmd = ["scp"]
+
+        # Add ProxyJump option for VPN server
+        proxy_jump = f"{server_user}@{server_host}:{server_port}"
+        scp_cmd.extend(["-o", f"ProxyJump={proxy_jump}"])
+        scp_cmd.extend(["-o", "StrictHostKeyChecking=no"])
+        scp_cmd.extend(["-o", "UserKnownHostsFile=/dev/null"])
+
+        # Add server password if needed
+        if server_password:
+            scp_cmd = ["sshpass", "-p", server_password] + scp_cmd
+
+        # Preserve permissions if requested
+        if preserve_permissions:
+            scp_cmd.append("-p")
+
+        # Add compression
+        scp_cmd.append("-C")
+
+        # Add source and destination
+        scp_cmd.append(f"{username}@{device_ip}:{remote_path}")
+        scp_cmd.append(str(local_file))
+
+        # Execute scp through VPN server
+        result = subprocess.run(scp_cmd, check=False, capture_output=True, text=True, timeout=120)
+
+        if result.returncode == 0:
+            logger.info(
+                f"Successfully copied {remote_path} from {device_id} to {local_path} via VPN server"
+            )
+            return {
+                "success": True,
+                "device_id": device_id,
+                "device_type": device_info.get("device_type", "foundries"),
+                "connection_method": "through_vpn_server",
+                "ip": device_ip,
+                "remote_path": remote_path,
+                "local_path": str(local_file),
+                "message": f"File copied successfully to {local_path} via VPN server",
+            }
+
+        actual_error = _extract_scp_error(result.stderr.strip() if result.stderr else "")
+        error_msg = f"Failed to copy file via VPN server: {actual_error}"
+        logger.error(error_msg)
+        return {
+            "success": False,
+            "error": error_msg,
+            "device_id": device_id,
+            "device_type": device_info.get("device_type", "foundries"),
+            "connection_method": "through_vpn_server",
+            "remote_path": remote_path,
+            "local_path": str(local_path),
+            "suggestions": [
+                "Check VPN server connectivity",
+                "Verify device is reachable from VPN server",
+                "Check device-to-device communication is enabled",
+                f"Check remote file exists: ssh_to_device(device_id, 'ls -lh {remote_path}')",
+            ],
+        }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "error": "File copy via VPN server timed out (120 seconds)",
+            "device_id": device_id,
+            "connection_method": "through_vpn_server",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to copy file via VPN server: {e!s}",
+            "device_id": device_id,
+            "connection_method": "through_vpn_server",
+        }
+
+
 def sync_directory_to_device(
     device_id: str,
     local_dir: str,
@@ -383,8 +626,11 @@ def sync_directory_to_device(
     Sync a local directory to remote device using rsync.
     More efficient than copying individual files for multiple files.
 
+    Supports both Foundries devices (via VPN IP) and local config devices.
+    Automatically falls back to VPN server connection for Foundries devices if direct connection fails.
+
     Args:
-        device_id: Device identifier (device_id or friendly_name)
+        device_id: Device identifier (Foundries device name or local device ID)
         local_dir: Local directory to sync
         remote_dir: Remote destination directory on device
         username: SSH username (optional, uses device default)
@@ -394,10 +640,18 @@ def sync_directory_to_device(
     Returns:
         Dictionary with operation results
     """
-    # Resolve to actual device_id
-    resolved_device_id = resolve_device_identifier(device_id)
-    if not resolved_device_id:
-        error_msg = f"Device '{device_id}' not found"
+    # Use unified device access to get device info (works for both Foundries and local devices)
+    device_info = get_unified_device_info(device_id)
+    if "error" in device_info:
+        return {
+            "success": False,
+            "error": device_info["error"],
+            "device_id": device_id,
+        }
+
+    ip = device_info.get("ip")
+    if not ip:
+        error_msg = f"Device '{device_id}' has no IP address"
         logger.error(error_msg)
         return {
             "success": False,
@@ -405,28 +659,8 @@ def sync_directory_to_device(
             "device_id": device_id,
         }
 
-    config = load_device_config()
-    devices = config.get("devices", {})
-    device = devices.get(resolved_device_id)
-
-    if not device:
-        error_msg = f"Device '{resolved_device_id}' not found in config"
-        logger.error(error_msg)
-        return {
-            "success": False,
-            "error": error_msg,
-            "device_id": resolved_device_id,
-        }
-
-    ip = device.get("ip")
-    if not ip:
-        error_msg = f"Device '{resolved_device_id}' has no IP address"
-        logger.error(error_msg)
-        return {
-            "success": False,
-            "error": error_msg,
-            "device_id": resolved_device_id,
-        }
+    device_type = device_info.get("device_type", "unknown")
+    resolved_device_id = device_info.get("device_id", device_id)
 
     # Check local directory exists
     local_path = Path(local_dir)
@@ -450,35 +684,28 @@ def sync_directory_to_device(
 
     # Determine username
     if not username:
-        username = device.get("ssh_user", "root")
-        # Try to get from cached credentials
-        cred = get_credential(resolved_device_id, "ssh")
-        if cred and cred.get("username"):
-            username = cred["username"]
+        username = device_info.get("username", "root")
+        # Try to get from cached credentials for local devices
+        if device_type == "local":
+            cred = get_credential(resolved_device_id, "ssh")
+            if cred and cred.get("username"):
+                username = cred["username"]
 
-    ssh_port = device.get("ssh_port", 22)
+    ssh_port = device_info.get("ssh_port", 22)
 
     try:
-        # Check if rsync is available on remote device
-        check_rsync_cmd = [
-            "ssh",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "BatchMode=yes",
-            f"{username}@{ip}",
-            "-p",
-            str(ssh_port),
-            "which rsync",
-        ]
-        rsync_check = subprocess.run(check_rsync_cmd, check=False, capture_output=True, timeout=10)
-        if rsync_check.returncode != 0:
+        # Check if rsync is available on remote device (use unified device access for SSH)
+        from lab_testing.utils.device_access import ssh_to_unified_device
+
+        rsync_check_result = ssh_to_unified_device(device_id, "which rsync")
+        if not rsync_check_result.get("success") or not rsync_check_result.get("stdout", "").strip():
             error_msg = "rsync is not installed on the remote device"
             logger.error(error_msg)
             return {
                 "success": False,
                 "error": error_msg,
                 "device_id": resolved_device_id,
+                "device_type": device_type,
                 "local_dir": str(local_path),
                 "remote_dir": remote_dir,
                 "suggestions": [
@@ -489,9 +716,11 @@ def sync_directory_to_device(
                 ],
             }
 
-        # Get or create multiplexed SSH connection for faster transfers
+        # Get or create multiplexed SSH connection for faster transfers (only for local devices)
         control_path = f"/tmp/ssh_mcp_{resolved_device_id}_{ip.replace('.', '_')}"
-        master = get_persistent_ssh_connection(ip, username, resolved_device_id, ssh_port)
+        master = None
+        if device_type == "local":
+            master = get_persistent_ssh_connection(ip, username, resolved_device_id, ssh_port)
 
         # Build rsync command optimized for speed
         rsync_cmd = [
@@ -501,7 +730,7 @@ def sync_directory_to_device(
             "--progress",  # Show progress
         ]
 
-        # Use multiplexed SSH connection if available
+        # Use multiplexed SSH connection if available (only for local devices)
         if master and master.poll() is None:
             # Use existing multiplexed connection (much faster for multiple files)
             rsync_cmd.extend(["-e", f"ssh -o ControlPath={control_path} -o BatchMode=yes"])
@@ -535,17 +764,22 @@ def sync_directory_to_device(
             return {
                 "success": True,
                 "device_id": resolved_device_id,
-                "friendly_name": device.get("friendly_name")
-                or device.get("name", resolved_device_id),
+                "device_type": device_type,
+                "connection_method": "direct",
                 "ip": ip,
                 "local_dir": str(local_path),
                 "remote_dir": remote_dir,
                 "message": f"Directory synced successfully to {remote_dir}",
-                "next_steps": [
-                    f"Verify files on device: ssh_to_device(device_id, 'ls -lh {remote_dir}')",
-                    f"Check sync status: ssh_to_device(device_id, 'du -sh {remote_dir}')",
-                ],
             }
+
+        # If direct connection failed and this is a Foundries device, try VPN server fallback
+        if device_type == "foundries":
+            logger.debug(
+                f"Direct rsync failed for Foundries device {device_id}, trying VPN server fallback"
+            )
+            return _sync_directory_to_device_via_vpn_server(
+                device_info, local_dir, remote_dir, username, exclude, delete
+            )
 
         error_msg = f"Failed to sync directory: {result.stderr.strip() or 'Unknown error'}"
         logger.error(error_msg)
@@ -553,6 +787,8 @@ def sync_directory_to_device(
             "success": False,
             "error": error_msg,
             "device_id": resolved_device_id,
+            "device_type": device_type,
+            "connection_method": "direct",
             "local_dir": str(local_path),
             "remote_dir": remote_dir,
             "suggestions": [
@@ -578,6 +814,137 @@ def sync_directory_to_device(
             "success": False,
             "error": error_msg,
             "device_id": resolved_device_id,
+        }
+
+
+def _sync_directory_to_device_via_vpn_server(
+    device_info: Dict[str, Any],
+    local_dir: str,
+    remote_dir: str,
+    username: str,
+    exclude: Optional[list],
+    delete: bool,
+) -> Dict[str, Any]:
+    """
+    Sync directory to Foundries device through VPN server (fallback when direct connection fails).
+
+    Args:
+        device_info: Device information dictionary from unified device access
+        local_dir: Local directory to sync
+        remote_dir: Remote destination directory on device
+        username: SSH username for device
+        exclude: List of patterns to exclude
+        delete: Delete files on remote that don't exist locally
+
+    Returns:
+        Dictionary with operation results
+    """
+    device_ip = device_info["ip"]
+    device_id = device_info["device_id"]
+
+    # Get VPN server connection info
+    server_info = _get_vpn_server_connection_info()
+    server_host = server_info["server_host"]
+    server_port = server_info["server_port"]
+    server_user = server_info["server_user"]
+    server_password = server_info["server_password"]
+
+    logger.debug(
+        f"Syncing directory to Foundries device {device_id} ({device_ip}) through VPN server {server_host}:{server_port}"
+    )
+
+    local_path = Path(local_dir)
+    if not local_path.exists() or not local_path.is_dir():
+        return {
+            "success": False,
+            "error": f"Local directory not found or not a directory: {local_dir}",
+            "device_id": device_id,
+            "connection_method": "through_vpn_server",
+        }
+
+    try:
+        # Build rsync command with ProxyJump via SSH -e option
+        rsync_cmd = [
+            "rsync",
+            "-avz",  # -a: archive, -v: verbose, -z: compress
+            "--partial",  # Keep partial files for resume
+            "--progress",  # Show progress
+        ]
+
+        # Add ProxyJump via SSH -e option
+        proxy_jump = f"{server_user}@{server_host}:{server_port}"
+        ssh_options = f"ssh -o ProxyJump={proxy_jump} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+        rsync_cmd.extend(["-e", ssh_options])
+
+        # Add server password if needed (wrap rsync with sshpass)
+        if server_password:
+            rsync_cmd = ["sshpass", "-p", server_password] + rsync_cmd
+
+        # Add exclude patterns
+        if exclude:
+            for pattern in exclude:
+                rsync_cmd.extend(["--exclude", pattern])
+
+        # Add delete flag
+        if delete:
+            rsync_cmd.append("--delete")
+
+        # Add source and destination (trailing slash ensures directory contents are synced)
+        source = str(local_path)
+        if not source.endswith("/"):
+            source += "/"
+        rsync_cmd.append(source)
+        rsync_cmd.append(f"{username}@{device_ip}:{remote_dir}")
+
+        # Execute rsync through VPN server
+        result = subprocess.run(rsync_cmd, check=False, capture_output=True, text=True, timeout=300)
+
+        if result.returncode == 0:
+            logger.info(
+                f"Successfully synced {local_dir} to {device_id}:{remote_dir} via VPN server"
+            )
+            return {
+                "success": True,
+                "device_id": device_id,
+                "device_type": device_info.get("device_type", "foundries"),
+                "connection_method": "through_vpn_server",
+                "ip": device_ip,
+                "local_dir": str(local_path),
+                "remote_dir": remote_dir,
+                "message": f"Directory synced successfully to {remote_dir} via VPN server",
+            }
+
+        error_msg = f"Failed to sync directory via VPN server: {result.stderr.strip() or 'Unknown error'}"
+        logger.error(error_msg)
+        return {
+            "success": False,
+            "error": error_msg,
+            "device_id": device_id,
+            "device_type": device_info.get("device_type", "foundries"),
+            "connection_method": "through_vpn_server",
+            "local_dir": str(local_path),
+            "remote_dir": remote_dir,
+            "suggestions": [
+                "Check VPN server connectivity",
+                "Verify device is reachable from VPN server",
+                "Check device-to-device communication is enabled",
+                "Check rsync is installed on device",
+            ],
+        }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "error": "Directory sync via VPN server timed out (300 seconds)",
+            "device_id": device_id,
+            "connection_method": "through_vpn_server",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to sync directory via VPN server: {e!s}",
+            "device_id": device_id,
+            "connection_method": "through_vpn_server",
         }
 
 
