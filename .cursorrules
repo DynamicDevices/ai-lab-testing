@@ -1,0 +1,31 @@
+# Cursor Rules for MCP Remote Testing Project
+
+## SSH Connections
+
+**ALWAYS use SSH multiplexing (ControlMaster) for repeated SSH connections:**
+
+1. **First connection** - Establish master:
+   ```bash
+   sshpass -p 'password' ssh -o ControlMaster=yes \
+       -o ControlPath=~/.ssh/controlmasters/%h-%p-%r \
+       -o ControlPersist=300 \
+       -p PORT user@host "command"
+   ```
+
+2. **Subsequent connections** - Reuse master:
+   ```bash
+   ssh -o ControlPath=~/.ssh/controlmasters/%h-%p-%r \
+       -p PORT user@host "command"
+   ```
+
+3. **For WireGuard server** (proxmox.dynamicdevices.co.uk:5025):
+   - Use multiplexing for all diagnostic commands
+   - Master connection persists for 5 minutes
+   - No password needed after first connection
+
+## Best Practices
+
+- Use multiplexing whenever making multiple SSH connections to the same host
+- Set ControlPersist to 300-600 seconds
+- Use unique ControlPath per host/port/user combination
+- Document SSH connection patterns in code comments

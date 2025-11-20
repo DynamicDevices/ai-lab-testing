@@ -301,6 +301,201 @@ def get_all_tools() -> List[Tool]:
             },
         ),
         Tool(
+            name="enable_foundries_device_to_device",
+            description=(
+                "Enable device-to-device communication for a Foundries device via VPN. "
+                "SSHes into the WireGuard server, then from there to the target device, "
+                "and updates the device's NetworkManager WireGuard configuration to allow "
+                "the full VPN subnet instead of just the server IP. "
+                "This enables device-to-device communication for debugging/development purposes. "
+                "By default, Foundries devices use restrictive AllowedIPs (server IP only) for security. "
+                "This tool temporarily overrides that for development/debugging."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_name": {
+                        "type": "string",
+                        "description": "Name of the Foundries device (e.g., 'imx8mm-jaguar-sentai-2d0e0a09dab86563')",
+                    },
+                    "device_ip": {
+                        "type": "string",
+                        "description": "VPN IP address of the device (e.g., '10.42.42.2'). If not provided, will try to get from device list.",
+                    },
+                    "vpn_subnet": {
+                        "type": "string",
+                        "description": "VPN subnet to allow (default: '10.42.42.0/24')",
+                        "default": "10.42.42.0/24",
+                    },
+                    "server_host": {
+                        "type": "string",
+                        "description": "WireGuard server hostname/IP (default: from config or '144.76.167.54')",
+                    },
+                    "server_port": {
+                        "type": "integer",
+                        "description": "SSH port on WireGuard server (default: 5025)",
+                        "default": 5025,
+                    },
+                    "server_user": {
+                        "type": "string",
+                        "description": "SSH user for WireGuard server (default: 'root')",
+                        "default": "root",
+                    },
+                    "server_password": {
+                        "type": "string",
+                        "description": "SSH password for WireGuard server (if not using SSH keys)",
+                    },
+                    "device_user": {
+                        "type": "string",
+                        "description": "SSH user on device (default: 'fio')",
+                        "default": "fio",
+                    },
+                    "device_password": {
+                        "type": "string",
+                        "description": "SSH password on device (default: 'fio')",
+                        "default": "fio",
+                    },
+                },
+                "required": ["device_name"],
+            },
+        ),
+        Tool(
+            name="check_client_peer_registered",
+            description=(
+                "Check if a client peer is registered on the Foundries WireGuard server. "
+                "Connects via Foundries VPN (if connected) or standard VPN (hardware lab) for bootstrap access. "
+                "Can derive client public key from local config file if not provided. "
+                "Useful for troubleshooting VPN connection issues."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "client_public_key": {
+                        "type": "string",
+                        "description": "Client's WireGuard public key. If not provided, will try to derive from local config file.",
+                    },
+                    "server_host": {
+                        "type": "string",
+                        "description": "WireGuard server hostname/IP. If not provided, will try Foundries VPN (10.42.42.1) or standard VPN (10.21.21.101).",
+                    },
+                    "server_port": {
+                        "type": "integer",
+                        "description": "SSH port on WireGuard server (default: 5025)",
+                        "default": 5025,
+                    },
+                    "server_user": {
+                        "type": "string",
+                        "description": "SSH user for WireGuard server (default: 'root')",
+                        "default": "root",
+                    },
+                    "server_password": {
+                        "type": "string",
+                        "description": "SSH password for WireGuard server (if not using SSH keys)",
+                    },
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="register_foundries_vpn_client",
+            description=(
+                "Register a client peer on the Foundries WireGuard server. "
+                "Automates client peer registration by connecting to server via Foundries VPN (if connected) "
+                "or standard VPN (hardware lab) for bootstrap access. "
+                "Supports both config file method (factory-clients.conf) and legacy method (wg set). "
+                "Use this tool to register your client before connecting to Foundries VPN."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "client_public_key": {
+                        "type": "string",
+                        "description": "Client's WireGuard public key to register",
+                    },
+                    "assigned_ip": {
+                        "type": "string",
+                        "description": "IP address to assign to client (e.g., '10.42.42.10')",
+                    },
+                    "server_host": {
+                        "type": "string",
+                        "description": "WireGuard server hostname/IP. If not provided, will try Foundries VPN (10.42.42.1) or standard VPN (10.21.21.101).",
+                    },
+                    "server_port": {
+                        "type": "integer",
+                        "description": "SSH port on WireGuard server (default: 5025)",
+                        "default": 5025,
+                    },
+                    "server_user": {
+                        "type": "string",
+                        "description": "SSH user for WireGuard server (default: 'root')",
+                        "default": "root",
+                    },
+                    "server_password": {
+                        "type": "string",
+                        "description": "SSH password for WireGuard server (if not using SSH keys)",
+                    },
+                    "use_config_file": {
+                        "type": "boolean",
+                        "description": "If True, use config file method (/etc/wireguard/factory-clients.conf). If False, use legacy method (wg set + wg-quick save).",
+                        "default": True,
+                    },
+                },
+                "required": ["client_public_key", "assigned_ip"],
+            },
+        ),
+        Tool(
+            name="manage_foundries_vpn_ip_cache",
+            description=(
+                "Manage Foundries VPN IP address cache. "
+                "Query, update, and refresh the cache of Foundries device VPN IP addresses. "
+                "The cache is populated from the WireGuard server's /etc/hosts file or manually. "
+                "Useful for quickly looking up device VPN IPs without querying the server each time."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["get", "list", "set", "remove", "refresh"],
+                        "description": "Action to perform: 'get' (get IP for device), 'list' (list all cached IPs), 'set' (manually set IP), 'remove' (remove entry), 'refresh' (refresh from server)",
+                        "default": "get",
+                    },
+                    "device_name": {
+                        "type": "string",
+                        "description": "Foundries device name (required for get/set/remove actions, e.g., 'imx8mm-jaguar-inst-2240a09dab86563')",
+                    },
+                    "vpn_ip": {
+                        "type": "string",
+                        "description": "VPN IP address (required for 'set' action, e.g., '10.42.42.2')",
+                    },
+                    "refresh_from_server": {
+                        "type": "boolean",
+                        "description": "If True, refresh cache from WireGuard server /etc/hosts (for 'refresh' action)",
+                        "default": False,
+                    },
+                    "server_host": {
+                        "type": "string",
+                        "description": "WireGuard server hostname/IP (default: from config or 'proxmox.dynamicdevices.co.uk')",
+                    },
+                    "server_port": {
+                        "type": "integer",
+                        "description": "SSH port on WireGuard server (default: 5025)",
+                        "default": 5025,
+                    },
+                    "server_user": {
+                        "type": "string",
+                        "description": "SSH user for WireGuard server (default: 'root')",
+                        "default": "root",
+                    },
+                    "server_password": {
+                        "type": "string",
+                        "description": "SSH password for WireGuard server (if not using SSH keys)",
+                    },
+                },
+                "required": [],
+            },
+        ),
+        Tool(
             name="check_foundries_vpn_client_config",
             description=(
                 "Check if Foundries VPN client configuration file exists and is valid. "

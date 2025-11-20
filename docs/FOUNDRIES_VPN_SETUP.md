@@ -268,6 +268,107 @@ connect_foundries_vpn(config_path="/path/to/foundries.conf")
 - Connects to Foundries VPN server
 - Auto-detects config file if not specified
 
+## Server-Side Configuration (For Development)
+
+### Enabling Peer-to-Peer Communication
+
+**Important:** By default, the Foundries WireGuard server daemon (`factory-wireguard-server`) configures devices with restrictive `allowed-ips` (`/32` - only their own IP), preventing peer-to-peer communication. This is a security feature, but for development environments, you may want to enable full network access.
+
+**Root Cause:** The daemon code sets `AllowedIPs = {ip}` (line 257 in `factory-wireguard.py`), which creates `/32` restrictions. The daemon also regenerates the config periodically, overwriting manual changes.
+
+**Solution: Modify Daemon Code for Development**
+
+On the VPN server (gateway container), modify the daemon code:
+
+1. **Edit the daemon script:**
+   ```bash
+   # On VPN server
+   cd /root/factory-wireguard-server
+   # Edit factory-wireguard.py line 257
+   ```
+
+2. **Change line 257 from:**
+   ```python
+   AllowedIPs = {ip}
+   ```
+   
+   **To:**
+   ```python
+   AllowedIPs = 10.42.42.0/24
+   ```
+
+3. **Restart the daemon:**
+   ```bash
+   # If using systemd
+   systemctl restart factory-vpn-<factory>.service
+   
+   # Or if running manually
+   pkill -f factory-wireguard.py
+   # Then restart the daemon process
+   ```
+
+4. **Add client peer manually:**
+   ```bash
+   # Get client public key (see "Finding Your Client Key" below)
+   wg set factory peer <CLIENT_PUBLIC_KEY> allowed-ips 10.42.42.0/24
+   wg-quick save factory
+   ```
+
+**Note:** The client peer is NOT managed by the daemon, so it must be added manually and will persist. Device peers will now be configured with full network access (`10.42.42.0/24`) by the daemon.
+
+### Finding Your Client Key
+
+The **client key** (also called "client public key") is your WireGuard public key. It's derived from your private key and is used to identify your client peer on the VPN server.
+
+**How to find your client public key:**
+
+**Method 1: From your WireGuard config file**
+```bash
+# Your config file contains your private key
+# Extract the public key from it:
+cat ~/.config/wireguard/foundries.conf | grep -A 1 "\[Interface\]" | grep "PrivateKey" | awk '{print $3}' | wg pubkey
+```
+
+**Method 2: Generate from private key file**
+```bash
+# If you have your private key saved separately
+cat /path/to/privatekey | wg pubkey
+```
+
+**Method 3: From WireGuard status (if connected)**
+```bash
+# When connected, check your public key
+wg show | grep "public key"
+```
+
+**Method 4: Generate new key pair**
+```bash
+# Generate new private/public key pair
+wg genkey | tee /tmp/privatekey | wg pubkey > /tmp/publickey
+
+# View your public key (share this with VPN admin)
+cat /tmp/publickey
+
+# Example output:
+# mzHaZPGowqqzAa5tVFQJs0zoWuDVLppt44HwgdcPXkg=
+```
+
+**What the client key looks like:**
+- Base64-encoded string
+- Example: `mzHaZPGowqqzAa5tVFQJs0zoWuDVLppt44HwgdcPXkg=`
+- Always ends with `=`
+- About 44 characters long
+
+**Where it's used:**
+- Added to VPN server as a peer: `wg set factory peer <CLIENT_PUBLIC_KEY> allowed-ips 10.42.42.0/24`
+- Identifies your client machine on the VPN network
+- Must be shared with VPN server administrator to get access
+
+**Security Note:**
+- The **public key** is safe to share (it's public!)
+- The **private key** must be kept secret (never share it)
+- Your private key is in your WireGuard config file (`PrivateKey = ...`)
+
 ## Troubleshooting
 
 ### fioctl Not Found

@@ -65,11 +65,15 @@ from lab_testing.tools.foundries_vpn import (
     check_foundries_vpn_client_config,
     connect_foundries_vpn,
     disable_foundries_vpn_device,
+    check_client_peer_registered,
+    enable_foundries_device_to_device,
     enable_foundries_vpn_device,
     foundries_vpn_status,
     generate_foundries_vpn_client_config_template,
     get_foundries_vpn_server_config,
     list_foundries_devices,
+    manage_foundries_vpn_ip_cache,
+    register_foundries_vpn_client,
     setup_foundries_vpn,
     verify_foundries_vpn_connection,
 )
@@ -853,6 +857,87 @@ def handle_tool(
                 return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
             factory = arguments.get("factory")
             result = disable_foundries_vpn_device(device_name, factory)
+            result = format_tool_response(result, name)
+            _record_tool_result(name, result, request_id, start_time)
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "manage_foundries_vpn_ip_cache":
+            try:
+                action = kwargs.get("action", "get")
+                device_name = kwargs.get("device_name")
+                vpn_ip = kwargs.get("vpn_ip")
+                refresh_from_server = kwargs.get("refresh_from_server", False)
+                server_host = kwargs.get("server_host")
+                server_port = kwargs.get("server_port", 5025)
+                server_user = kwargs.get("server_user", "root")
+                server_password = kwargs.get("server_password")
+
+                result = manage_foundries_vpn_ip_cache(
+                    action=action,
+                    device_name=device_name,
+                    vpn_ip=vpn_ip,
+                    refresh_from_server=refresh_from_server,
+                    server_host=server_host,
+                    server_port=server_port,
+                    server_user=server_user,
+                    server_password=server_password,
+                )
+                return result
+            except Exception as e:
+                error_msg = f"Failed to manage VPN IP cache: {e!s}"
+                return {"success": False, "error": error_msg}
+
+        if name == "check_client_peer_registered":
+            result = check_client_peer_registered(
+                client_public_key=arguments.get("client_public_key"),
+                server_host=arguments.get("server_host"),
+                server_port=arguments.get("server_port", 5025),
+                server_user=arguments.get("server_user", "root"),
+                server_password=arguments.get("server_password"),
+            )
+            result = format_tool_response(result, name)
+            _record_tool_result(name, result, request_id, start_time)
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "register_foundries_vpn_client":
+            client_public_key = arguments.get("client_public_key")
+            assigned_ip = arguments.get("assigned_ip")
+            if not client_public_key or not assigned_ip:
+                error_msg = "client_public_key and assigned_ip are required"
+                duration = time.time() - start_time
+                record_tool_call(name, False, duration)
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+            result = register_foundries_vpn_client(
+                client_public_key=client_public_key,
+                assigned_ip=assigned_ip,
+                server_host=arguments.get("server_host"),
+                server_port=arguments.get("server_port", 5025),
+                server_user=arguments.get("server_user", "root"),
+                server_password=arguments.get("server_password"),
+                use_config_file=arguments.get("use_config_file", True),
+            )
+            result = format_tool_response(result, name)
+            _record_tool_result(name, result, request_id, start_time)
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "enable_foundries_device_to_device":
+            device_name = arguments.get("device_name")
+            if not device_name:
+                error_msg = "device_name is required"
+                duration = time.time() - start_time
+                record_tool_call(name, False, duration)
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+            result = enable_foundries_device_to_device(
+                device_name=device_name,
+                device_ip=arguments.get("device_ip"),
+                vpn_subnet=arguments.get("vpn_subnet", "10.42.42.0/24"),
+                server_host=arguments.get("server_host"),
+                server_port=arguments.get("server_port", 5025),
+                server_user=arguments.get("server_user", "root"),
+                server_password=arguments.get("server_password"),
+                device_user=arguments.get("device_user", "fio"),
+                device_password=arguments.get("device_password", "fio"),
+            )
             result = format_tool_response(result, name)
             _record_tool_result(name, result, request_id, start_time)
             return [TextContent(type="text", text=json.dumps(result, indent=2))]

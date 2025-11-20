@@ -42,10 +42,12 @@ Public Key: 9mOJNp50tokYgKVHK5FQgwlFGM8asm11oHdoWlEvkxI=
 ### Step 2: Obtain Client Configuration File
 
 You need a WireGuard client configuration file. This contains:
-- Your private key (unique to you)
+- Your private key (unique to you, keep secret!)
 - Your assigned VPN IP address
 - Server public key and endpoint
 - Network routes
+
+**Important:** You'll also need your **client public key** (derived from your private key) to add yourself as a peer on the VPN server. See "Finding Your Client Key" section below.
 
 **Option A: FoundriesFactory Web Interface (Recommended)**
 
@@ -105,6 +107,15 @@ PersistentKeepalive = 25
 - `YOUR_PRIVATE_KEY_HERE` with your generated private key
 - `10.42.42.X/24` with your assigned VPN IP address (get from VPN admin)
 - Adjust `AllowedIPs` to match your lab network subnets
+
+**After creating your config, extract your public key:**
+```bash
+# Extract public key from your config file
+cat ~/.config/wireguard/foundries.conf | grep "PrivateKey" | awk '{print $3}' | wg pubkey
+
+# Save this public key - you'll need to share it with the VPN server admin
+# to be added as a peer on the server
+```
 
 ### Step 3: Save Configuration File
 
@@ -193,7 +204,60 @@ ip route | grep 10.42.42
 ping 192.168.2.18  # Example device IP
 ```
 
-### Step 6: Access Devices for Remote Development
+### Step 6: Add Client Peer to VPN Server (CRITICAL)
+
+**CRITICAL STEP:** Your client machine must be added as a peer on the VPN server before you can connect to devices.
+
+**What you need:**
+- Your client public key (see "Finding Your Client Key" below)
+- Access to the VPN server (or contact VPN administrator)
+
+**On the VPN server, add your client peer:**
+```bash
+# Replace <CLIENT_PUBLIC_KEY> with your public key
+wg set factory peer <CLIENT_PUBLIC_KEY> allowed-ips 10.42.42.0/24
+wg-quick save factory
+```
+
+**Contact:** If you need assistance adding your client peer, contact: **ajlennon@dynamicdevices.co.uk**
+
+**Finding Your Client Key:**
+
+Your client public key is derived from your private key. Here's how to find it:
+
+**Method 1: From config file**
+```bash
+# Extract public key from your WireGuard config
+cat ~/.config/wireguard/foundries.conf | grep "PrivateKey" | awk '{print $3}' | wg pubkey
+```
+
+**Method 2: From private key file**
+```bash
+# If you saved your private key separately
+cat /path/to/privatekey | wg pubkey
+```
+
+**Method 3: Generate new key pair**
+```bash
+# Generate new private/public key pair
+wg genkey | tee /tmp/privatekey | wg pubkey > /tmp/publickey
+
+# View your public key
+cat /tmp/publickey
+# Example: mzHaZPGowqqzAa5tVFQJs0zoWuDVLppt44HwgdcPXkg=
+```
+
+**What it looks like:**
+- Base64-encoded string ending with `=`
+- Example: `mzHaZPGowqqzAa5tVFQJs0zoWuDVLppt44HwgdcPXkg=`
+- About 44 characters long
+
+**Security Note:**
+- ✅ **Public key is safe to share** - it's public!
+- ❌ **Private key must be kept secret** - never share it
+- Your private key is in your config file (`PrivateKey = ...`)
+
+### Step 7: Access Devices for Remote Development
 
 Once connected to the VPN, you can:
 
@@ -261,6 +325,16 @@ disconnect_vpn()
 ```
 
 ## Troubleshooting
+
+### Client Peer Not Added to Server
+
+**Symptom:** VPN connects but can't reach devices, or devices can't reach you.
+
+**Solution:**
+1. Verify your client public key: `cat ~/.config/wireguard/foundries.conf | grep "PrivateKey" | awk '{print $3}' | wg pubkey`
+2. Check if peer exists on server: `wg show factory | grep <your-public-key>`
+3. If missing, add peer: `wg set factory peer <your-public-key> allowed-ips 10.42.42.0/24`
+4. Contact VPN admin if you don't have server access: **ajlennon@dynamicdevices.co.uk**
 
 ### VPN Won't Connect
 
