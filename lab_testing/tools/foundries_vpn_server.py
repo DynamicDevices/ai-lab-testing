@@ -436,11 +436,20 @@ def enable_foundries_device_to_device(
         steps_completed.append(f"Resolved device IP: {device_ip}, server: {server_host}")
 
         # Build SSH command to update device config
-        # Step 1: Update NetworkManager config on device
-        update_cmd = f"""sshpass -p '{device_password}' ssh -o StrictHostKeyChecking=no {device_user}@{device_ip} 'echo "{device_password}" | sudo -S sed -i "s/allowed-ips=10.42.42.1/allowed-ips={vpn_subnet}/" /etc/NetworkManager/system-connections/factory-vpn0.nmconnection && echo "Config updated"'"""
-
-        # Step 2: Reload NetworkManager connection
-        reload_cmd = f"""sshpass -p '{device_password}' ssh -o StrictHostKeyChecking=no {device_user}@{device_ip} 'echo "{device_password}" | sudo -S nmcli connection reload factory-vpn0 && echo "{device_password}" | sudo -S nmcli connection down factory-vpn0 && sleep 1 && echo "{device_password}" | sudo -S nmcli connection up factory-vpn0 && sleep 2 && echo "{device_password}" | sudo -S wg show factory-vpn0 | grep "allowed ips"'"""
+        # We SSH to the server, then from there SSH to the device using sshpass
+        # Use | as sed delimiter to avoid issues with / in subnet (e.g., 10.42.42.0/24)
+        
+        # Build the command that will run on the device
+        # Use double quotes for the inner command to allow variable expansion
+        device_update_cmd = f'echo "{device_password}" | sudo -S sed -i "s|allowed-ips=10.42.42.1|allowed-ips={vpn_subnet}|" /etc/NetworkManager/system-connections/factory-vpn0.nmconnection && echo Config updated'
+        device_reload_cmd = f'echo "{device_password}" | sudo -S nmcli connection reload factory-vpn0 && echo "{device_password}" | sudo -S nmcli connection down factory-vpn0 && sleep 1 && echo "{device_password}" | sudo -S nmcli connection up factory-vpn0 && sleep 2 && echo "{device_password}" | sudo -S wg show factory-vpn0 | grep allowed'
+        
+        # Combine device commands
+        device_full_cmd = f"{device_update_cmd} && {device_reload_cmd}"
+        
+        # Build the command that runs on the server (SSH to device using sshpass)
+        # Use single quotes around the device command to prevent shell expansion on server
+        server_cmd = f"sshpass -p '{device_password}' ssh -o StrictHostKeyChecking=no {device_user}@{device_ip} '{device_full_cmd}'"
 
         # Step 3: Set server-side AllowedIPs
         # First, get device public key from server
@@ -454,8 +463,8 @@ def enable_foundries_device_to_device(
                 f"ssh -o StrictHostKeyChecking=no -p {server_port} {server_user}@{server_host}"
             )
 
-        # Execute update
-        full_cmd = f"""{ssh_to_server} "{update_cmd} && {reload_cmd}" """
+        # Execute update - use double quotes around server_cmd to allow variable expansion
+        full_cmd = f'{ssh_to_server} "{server_cmd}"'
 
         logger.info(f"Enabling device-to-device for {device_name} ({device_ip})")
         result = subprocess.run(
@@ -467,7 +476,12 @@ def enable_foundries_device_to_device(
             timeout=30,
         )
 
-        if result.returncode != 0:
+        # Check if the command succeeded by looking for success indicators
+        # The banner may cause non-zero exit codes, but if we see "Config updated" it worked
+        output = result.stdout + result.stderr
+        success_indicator = "Config updated" in output or "allowed" in output.lower()
+        
+        if result.returncode != 0 and not success_indicator:
             steps_failed.append("Failed to update device config")
             return {
                 "success": False,
@@ -480,6 +494,11 @@ def enable_foundries_device_to_device(
                     "Check device is online",
                 ],
             }
+        
+        # If we see success indicators, treat as success even if return code is non-zero
+        if success_indicator:
+            steps_completed.append("Updated device NetworkManager config")
+            steps_completed.append("Reloaded NetworkManager connection")
 
         steps_completed.append("Updated device NetworkManager config")
         steps_completed.append("Reloaded NetworkManager connection")

@@ -269,6 +269,86 @@ p.add_argument(
 
 ---
 
+### Issue 7: Device-to-Device Communication Not Working Despite Server Configuration
+
+**Symptoms:**
+- Server daemon is running with `--allow-device-to-device` flag
+- Server-side `wg show factory` shows `allowed ips: 10.42.42.0/24` for device peers
+- Devices cannot ping each other or client machines
+- Devices can only communicate with VPN server (`10.42.42.1`)
+
+**Root Cause:**
+**⚠️ CRITICAL:** Foundries devices receive their WireGuard configuration via OTA updates when VPN is enabled. The default configuration sets `allowed-ips=10.42.42.1/32` (server IP only) in the device's NetworkManager configuration file (`/etc/NetworkManager/system-connections/factory-vpn0.nmconnection`). This restrictive device-side setting **overrides** any server-side `AllowedIPs` configuration.
+
+**Why This Happens:**
+- Foundries devices use NetworkManager to manage WireGuard connections
+- When VPN is enabled via `fioctl devices config wireguard <device> enable`, Foundries sends a default NetworkManager configuration
+- This default configuration restricts `allowed-ips` to the server IP only (`10.42.42.1/32`)
+- NetworkManager applies this configuration, which then syncs to WireGuard runtime
+- Even if the server sets `AllowedIPs = 10.42.42.0/24`, the device's NetworkManager config restricts it to `10.42.42.1/32`
+
+**Fix:**
+**⚠️ CRITICAL STEP - MUST BE DONE ON EACH DEVICE ⚠️**
+
+The device's NetworkManager configuration **MUST** be updated manually. This cannot be done via server-side configuration alone.
+
+**Automated Method (Using MCP Tool):**
+```python
+enable_foundries_device_to_device(
+    device_name="imx8mm-jaguar-inst-2240a09dab86563",
+    device_ip="10.42.42.4",
+    server_host="proxmox.dynamicdevices.co.uk",
+    server_port=5025,
+    server_user="root",
+    device_user="fio",
+    device_password="fio"
+)
+```
+
+**Manual Method:**
+
+1. **SSH to WireGuard Server:**
+   ```bash
+   ssh root@proxmox.dynamicdevices.co.uk -p 5025
+   ```
+
+2. **SSH to Device from Server:**
+   ```bash
+   sshpass -p 'fio' ssh fio@10.42.42.4
+   ```
+
+3. **Update NetworkManager Config:**
+   ```bash
+   sudo sed -i 's/allowed-ips=10.42.42.1/allowed-ips=10.42.42.0\/24/' \
+     /etc/NetworkManager/system-connections/factory-vpn0.nmconnection
+   ```
+
+4. **Reload NetworkManager Connection:**
+   ```bash
+   sudo nmcli connection reload factory-vpn0
+   sudo nmcli connection down factory-vpn0
+   sleep 1
+   sudo nmcli connection up factory-vpn0
+   ```
+
+5. **Verify:**
+   ```bash
+   sudo wg show factory-vpn0 | grep "allowed ips"
+   ```
+   Should show: `allowed ips: 10.42.42.0/24`
+
+**Prevention:**
+- **Always update device NetworkManager config** after enabling VPN on a device
+- Document this as a required step in setup procedures
+- Consider automating this via MCP tool or deployment scripts
+
+**Question for Foundries Team:**
+- Is this default restrictive configuration (`allowed-ips=10.42.42.1/32`) sent by Foundries when VPN is enabled on a device?
+- Is there a way to configure this via `fioctl` or OTA updates instead of requiring manual NetworkManager config changes?
+- Could Foundries add a `--allow-device-to-device` option to `fioctl devices config wireguard` to configure this automatically?
+
+---
+
 ## Diagnostic Commands
 
 ### Server-Side Diagnostics

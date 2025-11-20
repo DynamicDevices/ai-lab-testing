@@ -429,7 +429,18 @@ list_foundries_devices()
 
 #### 3.3 Enable Device-to-Device Communication
 
-**CRITICAL:** By default, Foundries devices configure WireGuard with restrictive `allowed-ips=10.42.42.1/32` (server IP only). This prevents device-to-device communication.
+**⚠️ CRITICAL STEP - REQUIRED FOR DEVICE-TO-DEVICE COMMUNICATION ⚠️**
+
+**CRITICAL:** By default, Foundries devices configure WireGuard with restrictive `allowed-ips=10.42.42.1/32` (server IP only) in their NetworkManager configuration. This restrictive setting **MUST be updated on the device** to enable device-to-device communication. **This step is mandatory** - server-side configuration alone is not sufficient.
+
+**Why This Step Is Critical:**
+- Foundries devices receive their WireGuard configuration via OTA updates when VPN is enabled
+- The default configuration restricts `allowed-ips` to the server IP only (`10.42.42.1/32`)
+- This restrictive setting prevents devices from communicating with each other or client machines
+- **Even if the server is configured with `--allow-device-to-device`, the device-side NetworkManager config must be updated manually**
+- Without this step, device-to-device communication will not work
+
+**Question for Foundries Team:** Is this default restrictive configuration (`allowed-ips=10.42.42.1/32`) sent by Foundries when VPN is enabled on a device? Is there a way to configure this via `fioctl` or OTA updates instead of requiring manual NetworkManager config changes?
 
 **Automated Method (Using MCP Tool):**
 
