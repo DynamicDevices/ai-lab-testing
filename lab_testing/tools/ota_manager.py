@@ -404,7 +404,7 @@ def exec_container(
     if "error" in device_info:
         return device_info
 
-    exec_cmd = f"docker exec"
+    exec_cmd = "docker exec"
     if interactive:
         exec_cmd += " -it"
     exec_cmd += f" {container_name} {command}"
@@ -423,16 +423,16 @@ def exec_container(
                 "stderr": result.get("stderr", ""),
                 "returncode": result.get("returncode", 0),
             }
-        else:
-            return {
-                "success": False,
-                "device_id": device_id,
-                "device_type": device_info.get("device_type", "unknown"),
-                "connection_method": result.get("connection_method", "direct"),
-                "container_name": container_name,
-                "command": command,
-                "error": result.get("stderr") or result.get("error", "Failed to execute command in container"),
-            }
+        return {
+            "success": False,
+            "device_id": device_id,
+            "device_type": device_info.get("device_type", "unknown"),
+            "connection_method": result.get("connection_method", "direct"),
+            "container_name": container_name,
+            "command": command,
+            "error": result.get("stderr")
+            or result.get("error", "Failed to execute command in container"),
+        }
     except Exception as e:
         return {"success": False, "error": f"Failed to exec command in container: {e!s}"}
 
@@ -465,15 +465,14 @@ def start_container(device_id: str, container_name: str) -> Dict[str, Any]:
                 "message": f"Container '{container_name}' started successfully",
                 "output": result.get("stdout", ""),
             }
-        else:
-            return {
-                "success": False,
-                "device_id": device_id,
-                "device_type": device_info.get("device_type", "unknown"),
-                "connection_method": result.get("connection_method", "direct"),
-                "container_name": container_name,
-                "error": result.get("stderr") or result.get("error", "Failed to start container"),
-            }
+        return {
+            "success": False,
+            "device_id": device_id,
+            "device_type": device_info.get("device_type", "unknown"),
+            "connection_method": result.get("connection_method", "direct"),
+            "container_name": container_name,
+            "error": result.get("stderr") or result.get("error", "Failed to start container"),
+        }
     except Exception as e:
         return {"success": False, "error": f"Failed to start container: {e!s}"}
 
@@ -506,15 +505,14 @@ def stop_container(device_id: str, container_name: str) -> Dict[str, Any]:
                 "message": f"Container '{container_name}' stopped successfully",
                 "output": result.get("stdout", ""),
             }
-        else:
-            return {
-                "success": False,
-                "device_id": device_id,
-                "device_type": device_info.get("device_type", "unknown"),
-                "connection_method": result.get("connection_method", "direct"),
-                "container_name": container_name,
-                "error": result.get("stderr") or result.get("error", "Failed to stop container"),
-            }
+        return {
+            "success": False,
+            "device_id": device_id,
+            "device_type": device_info.get("device_type", "unknown"),
+            "connection_method": result.get("connection_method", "direct"),
+            "container_name": container_name,
+            "error": result.get("stderr") or result.get("error", "Failed to stop container"),
+        }
     except Exception as e:
         return {"success": False, "error": f"Failed to stop container: {e!s}"}
 

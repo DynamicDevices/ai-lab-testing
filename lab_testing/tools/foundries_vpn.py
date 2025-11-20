@@ -191,7 +191,9 @@ def manage_foundries_vpn_ip_cache(
                                 if line.startswith("Endpoint =") or line.startswith("Endpoint="):
                                     endpoint = line.split("=", 1)[1].strip()
                                     # Extract host from endpoint (e.g., "144.76.167.54:5555" -> "144.76.167.54")
-                                    server_host = endpoint.split(":")[0] if ":" in endpoint else endpoint
+                                    server_host = (
+                                        endpoint.split(":")[0] if ":" in endpoint else endpoint
+                                    )
                                     break
                         except Exception:
                             pass
@@ -265,15 +267,14 @@ def manage_foundries_vpn_ip_cache(
                             "source": "server_hosts",
                             "message": f"Refreshed VPN IP cache from WireGuard server /etc/hosts: {cached_count} devices cached",
                         }
-                    else:
-                        return {
-                            "success": False,
-                            "error": f"Failed to read /etc/hosts from server: {hosts_result.stderr}",
-                            "suggestions": [
-                                "Check SSH access to WireGuard server",
-                                "Verify server_host, server_port, and credentials",
-                            ],
-                        }
+                    return {
+                        "success": False,
+                        "error": f"Failed to read /etc/hosts from server: {hosts_result.stderr}",
+                        "suggestions": [
+                            "Check SSH access to WireGuard server",
+                            "Verify server_host, server_port, and credentials",
+                        ],
+                    }
                 except Exception as e:
                     logger.error(f"Failed to refresh VPN IP cache from server: {e}", exc_info=True)
                     return {
@@ -388,7 +389,11 @@ def manage_foundries_vpn_ip_cache(
                             if in_wireguard_section:
                                 if line.startswith("address=") or line.startswith("| address="):
                                     # Handle both "address=..." and "| address=..." formats
-                                    ip_addr = line.split("address=", 1)[1].strip() if "address=" in line else None
+                                    ip_addr = (
+                                        line.split("address=", 1)[1].strip()
+                                        if "address=" in line
+                                        else None
+                                    )
                                     if ip_addr and ip_addr != "(none)":
                                         cache_vpn_ip(device_name_parsed, ip_addr, source="fioctl")
                                         cached_count += 1
@@ -398,7 +403,11 @@ def manage_foundries_vpn_ip_cache(
                                         )
                                         break
                                 # Stop looking if we hit the next section
-                                elif line and not line.startswith("|") and not line.startswith("address="):
+                                elif (
+                                    line
+                                    and not line.startswith("|")
+                                    and not line.startswith("address=")
+                                ):
                                     # Moved to next section
                                     in_wireguard_section = False
                     else:

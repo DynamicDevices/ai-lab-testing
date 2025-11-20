@@ -29,7 +29,14 @@
 ### OTA/Container Management
 - `check_ota_status(device_id)` - Check Foundries.io OTA update status
 - `trigger_ota_update(device_id, target?)` - Trigger OTA update
-- `list_containers(device_id)` - List Docker containers
+- `list_containers(device_id)` - List Docker containers (supports Foundries and local devices, VPN server fallback)
+- `get_container_logs(device_id, container_name, tail=100, follow=false, timestamps=false)` - Get container logs for debugging
+- `restart_container(device_id, container_name)` - Restart a container (useful for applying config changes)
+- `start_container(device_id, container_name)` - Start a stopped container
+- `stop_container(device_id, container_name)` - Stop a running container
+- `exec_container(device_id, container_name, command)` - Execute command inside a running container (docker exec)
+- `inspect_container(device_id, container_name)` - Inspect container (get detailed info: config, state, network)
+- `get_container_stats(device_id, container_name)` - Get container resource usage (CPU, memory, network)
 - `deploy_container(device_id, container_name, image)` - Deploy/update container
 - `get_system_status(device_id)` - Get system status (uptime, load, memory, disk, kernel)
 - `get_firmware_version(device_id)` - Get firmware/OS version from /etc/os-release
