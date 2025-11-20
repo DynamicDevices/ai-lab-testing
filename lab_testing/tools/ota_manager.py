@@ -7,30 +7,7 @@ from typing import Any, Dict, Optional
 
 from lab_testing.config import get_lab_devices_config
 from lab_testing.tools.device_manager import ssh_to_device
-
-
-def get_device_fio_info(device_id: str) -> Dict[str, Any]:
-    """Get Foundries.io information for a device"""
-    try:
-        with open(get_lab_devices_config()) as f:
-            config = json.load(f)
-            devices = config.get("devices", {})
-
-            if device_id not in devices:
-                return {"error": f"Device {device_id} not found"}
-
-            device = devices[device_id]
-            return {
-                "device_id": device_id,
-                "name": device.get("name", "Unknown"),
-                "ip": device.get("ip"),
-                "fio_factory": device.get("fio_factory"),
-                "fio_target": device.get("fio_target"),
-                "fio_current": device.get("fio_current"),
-                "fio_containers": device.get("fio_containers", []),
-            }
-    except Exception as e:
-        return {"error": f"Failed to get device info: {e!s}"}
+from lab_testing.utils.device_access import ssh_to_unified_device
 
 
 def check_ota_status(device_id: str) -> Dict[str, Any]:
@@ -121,18 +98,16 @@ def list_containers(device_id: str) -> Dict[str, Any]:
     """
     List containers on a device.
 
+    Supports both Foundries devices (via VPN IP) and local config devices.
+
     Args:
-        device_id: Device identifier
+        device_id: Device identifier (Foundries device name or local device ID)
 
     Returns:
-        Container list
+        Container list with name, status, and image
     """
-    device_info = get_device_fio_info(device_id)
-    if "error" in device_info:
-        return device_info
-
     try:
-        result = ssh_to_device(
+        result = ssh_to_unified_device(
             device_id, "docker ps -a --format '{{.Names}}\t{{.Status}}\t{{.Image}}'"
         )
 
@@ -144,10 +119,218 @@ def list_containers(device_id: str) -> Dict[str, Any]:
                     if len(parts) >= 3:
                         containers.append({"name": parts[0], "status": parts[1], "image": parts[2]})
 
-            return {"device_id": device_id, "containers": containers, "count": len(containers)}
-        return {"device_id": device_id, "error": result.get("stderr", "Failed to list containers")}
+            return {
+                "success": True,
+                "device_id": result.get("device_id", device_id),
+                "device_type": result.get("device_type", "unknown"),
+                "containers": containers,
+                "count": len(containers),
+            }
+        return {
+            "success": False,
+            "device_id": result.get("device_id", device_id),
+            "error": result.get("stderr") or result.get("error", "Failed to list containers"),
+        }
     except Exception as e:
-        return {"error": f"Failed to list containers: {e!s}"}
+        return {"success": False, "error": f"Failed to list containers: {e!s}"}
+
+
+def get_container_logs(
+    device_id: str,
+    container_name: str,
+    tail: int = 100,
+    follow: bool = False,
+    timestamps: bool = False,
+) -> Dict[str, Any]:
+    """
+    Get container logs from a device.
+
+    Supports both Foundries devices (via VPN IP) and local config devices.
+
+    Args:
+        device_id: Device identifier (Foundries device name or local device ID)
+        container_name: Container name
+        tail: Number of lines to show from end of logs (default: 100)
+        follow: Follow log output (default: False)
+        timestamps: Show timestamps (default: False)
+
+    Returns:
+        Dictionary with container logs
+    """
+    try:
+        # Build docker logs command
+        cmd_parts = ["docker", "logs"]
+        if timestamps:
+            cmd_parts.append("--timestamps")
+        if follow:
+            cmd_parts.append("--follow")
+        else:
+            cmd_parts.extend(["--tail", str(tail)])
+        cmd_parts.append(container_name)
+
+        command = " ".join(cmd_parts)
+        result = ssh_to_unified_device(device_id, command)
+
+        if result.get("success"):
+            return {
+                "success": True,
+                "device_id": result.get("device_id", device_id),
+                "device_type": result.get("device_type", "unknown"),
+                "container_name": container_name,
+                "logs": result.get("stdout", ""),
+                "tail": tail,
+                "follow": follow,
+                "timestamps": timestamps,
+            }
+        return {
+            "success": False,
+            "device_id": result.get("device_id", device_id),
+            "container_name": container_name,
+            "error": result.get("stderr") or result.get("error", "Failed to get container logs"),
+        }
+    except Exception as e:
+        return {"success": False, "error": f"Failed to get container logs: {e!s}"}
+
+
+def restart_container(device_id: str, container_name: str) -> Dict[str, Any]:
+    """
+    Restart a container on a device.
+
+    Supports both Foundries devices (via VPN IP) and local config devices.
+
+    Args:
+        device_id: Device identifier (Foundries device name or local device ID)
+        container_name: Container name
+
+    Returns:
+        Dictionary with restart result
+    """
+    try:
+        result = ssh_to_unified_device(device_id, f"docker restart {container_name}")
+
+        if result.get("success"):
+            return {
+                "success": True,
+                "device_id": result.get("device_id", device_id),
+                "device_type": result.get("device_type", "unknown"),
+                "container_name": container_name,
+                "message": f"Container {container_name} restarted successfully",
+                "output": result.get("stdout", ""),
+            }
+        return {
+            "success": False,
+            "device_id": result.get("device_id", device_id),
+            "container_name": container_name,
+            "error": result.get("stderr") or result.get("error", "Failed to restart container"),
+        }
+    except Exception as e:
+        return {"success": False, "error": f"Failed to restart container: {e!s}"}
+
+
+def inspect_container(device_id: str, container_name: str) -> Dict[str, Any]:
+    """
+    Inspect a container on a device (get detailed container information).
+
+    Supports both Foundries devices (via VPN IP) and local config devices.
+
+    Args:
+        device_id: Device identifier (Foundries device name or local device ID)
+        container_name: Container name
+
+    Returns:
+        Dictionary with container inspection data (JSON format)
+    """
+    try:
+        result = ssh_to_unified_device(device_id, f"docker inspect {container_name}")
+
+        if result.get("success"):
+            import json
+
+            try:
+                inspect_data = json.loads(result.get("stdout", "[]"))
+                return {
+                    "success": True,
+                    "device_id": result.get("device_id", device_id),
+                    "device_type": result.get("device_type", "unknown"),
+                    "container_name": container_name,
+                    "inspect_data": inspect_data,
+                }
+            except json.JSONDecodeError:
+                return {
+                    "success": True,
+                    "device_id": result.get("device_id", device_id),
+                    "device_type": result.get("device_type", "unknown"),
+                    "container_name": container_name,
+                    "raw_output": result.get("stdout", ""),
+                    "note": "Could not parse JSON, returning raw output",
+                }
+        return {
+            "success": False,
+            "device_id": result.get("device_id", device_id),
+            "container_name": container_name,
+            "error": result.get("stderr") or result.get("error", "Failed to inspect container"),
+        }
+    except Exception as e:
+        return {"success": False, "error": f"Failed to inspect container: {e!s}"}
+
+
+def get_container_stats(device_id: str, container_name: str) -> Dict[str, Any]:
+    """
+    Get container resource usage statistics (CPU, memory, network).
+
+    Supports both Foundries devices (via VPN IP) and local config devices.
+
+    Args:
+        device_id: Device identifier (Foundries device name or local device ID)
+        container_name: Container name
+
+    Returns:
+        Dictionary with container statistics
+    """
+    try:
+        # Get one-time stats (not continuous)
+        result = ssh_to_unified_device(
+            device_id, f"docker stats --no-stream --format json {container_name}"
+        )
+
+        if result.get("success"):
+            import json
+
+            try:
+                stats_data = json.loads(result.get("stdout", "[]"))
+                if isinstance(stats_data, list) and len(stats_data) > 0:
+                    stats = stats_data[0]
+                    return {
+                        "success": True,
+                        "device_id": result.get("device_id", device_id),
+                        "device_type": result.get("device_type", "unknown"),
+                        "container_name": container_name,
+                        "stats": stats,
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "device_id": result.get("device_id", device_id),
+                        "container_name": container_name,
+                        "error": "Container not found or not running",
+                    }
+            except json.JSONDecodeError:
+                return {
+                    "success": True,
+                    "device_id": result.get("device_id", device_id),
+                    "device_type": result.get("device_type", "unknown"),
+                    "container_name": container_name,
+                    "raw_output": result.get("stdout", ""),
+                    "note": "Could not parse JSON, returning raw output",
+                }
+        return {
+            "success": False,
+            "device_id": result.get("device_id", device_id),
+            "container_name": container_name,
+            "error": result.get("stderr") or result.get("error", "Failed to get container stats"),
+        }
+    except Exception as e:
+        return {"success": False, "error": f"Failed to get container stats: {e!s}"}
 
 
 def deploy_container(device_id: str, container_name: str, image: str) -> Dict[str, Any]:

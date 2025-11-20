@@ -81,9 +81,13 @@ from lab_testing.tools.foundries_vpn import (
 from lab_testing.tools.ota_manager import (
     check_ota_status,
     deploy_container,
+    get_container_logs,
+    get_container_stats,
     get_firmware_version,
     get_system_status,
+    inspect_container,
     list_containers,
+    restart_container,
     trigger_ota_update,
 )
 from lab_testing.tools.power_analysis import (
@@ -1718,6 +1722,65 @@ def handle_tool(
                 record_tool_call(name, False, duration)
                 return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
             result = deploy_container(device_id, container_name, image)
+            _record_tool_result(name, result, request_id, start_time)
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "get_container_logs":
+            device_id = arguments.get("device_id")
+            container_name = arguments.get("container_name")
+            tail = arguments.get("tail", 100)
+            follow = arguments.get("follow", False)
+            timestamps = arguments.get("timestamps", False)
+            if not device_id or not container_name:
+                error_msg = "device_id and container_name are required"
+                logger.warning(f"[{request_id}] {error_msg}")
+                log_tool_result(name, False, request_id, error_msg)
+                duration = time.time() - start_time
+                record_tool_call(name, False, duration)
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+            result = get_container_logs(device_id, container_name, tail, follow, timestamps)
+            _record_tool_result(name, result, request_id, start_time)
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "restart_container":
+            device_id = arguments.get("device_id")
+            container_name = arguments.get("container_name")
+            if not device_id or not container_name:
+                error_msg = "device_id and container_name are required"
+                logger.warning(f"[{request_id}] {error_msg}")
+                log_tool_result(name, False, request_id, error_msg)
+                duration = time.time() - start_time
+                record_tool_call(name, False, duration)
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+            result = restart_container(device_id, container_name)
+            _record_tool_result(name, result, request_id, start_time)
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "inspect_container":
+            device_id = arguments.get("device_id")
+            container_name = arguments.get("container_name")
+            if not device_id or not container_name:
+                error_msg = "device_id and container_name are required"
+                logger.warning(f"[{request_id}] {error_msg}")
+                log_tool_result(name, False, request_id, error_msg)
+                duration = time.time() - start_time
+                record_tool_call(name, False, duration)
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+            result = inspect_container(device_id, container_name)
+            _record_tool_result(name, result, request_id, start_time)
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "get_container_stats":
+            device_id = arguments.get("device_id")
+            container_name = arguments.get("container_name")
+            if not device_id or not container_name:
+                error_msg = "device_id and container_name are required"
+                logger.warning(f"[{request_id}] {error_msg}")
+                log_tool_result(name, False, request_id, error_msg)
+                duration = time.time() - start_time
+                record_tool_call(name, False, duration)
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+            result = get_container_stats(device_id, container_name)
             _record_tool_result(name, result, request_id, start_time)
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
 

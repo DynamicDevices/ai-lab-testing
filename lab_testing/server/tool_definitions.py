@@ -891,11 +891,112 @@ def get_all_tools() -> List[Tool]:
         ),
         Tool(
             name="list_containers",
-            description="List Docker containers on a device",
+            description=(
+                "List Docker containers on a device. "
+                "Supports both Foundries devices (via VPN IP) and local config devices. "
+                "Returns container name, status, and image for each container."
+            ),
             inputSchema={
                 "type": "object",
-                "properties": {"device_id": {"type": "string", "description": "Device identifier"}},
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (Foundries device name or local device ID)",
+                    }
+                },
                 "required": ["device_id"],
+            },
+        ),
+        Tool(
+            name="get_container_logs",
+            description=(
+                "Get container logs from a device. "
+                "Supports both Foundries devices (via VPN IP) and local config devices. "
+                "Useful for debugging container issues. "
+                "Returns last N lines of logs (default: 100)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (Foundries device name or local device ID)",
+                    },
+                    "container_name": {"type": "string", "description": "Container name"},
+                    "tail": {
+                        "type": "integer",
+                        "description": "Number of lines to show from end of logs (default: 100)",
+                        "default": 100,
+                    },
+                    "follow": {
+                        "type": "boolean",
+                        "description": "Follow log output (default: false)",
+                        "default": False,
+                    },
+                    "timestamps": {
+                        "type": "boolean",
+                        "description": "Show timestamps (default: false)",
+                        "default": False,
+                    },
+                },
+                "required": ["device_id", "container_name"],
+            },
+        ),
+        Tool(
+            name="restart_container",
+            description=(
+                "Restart a container on a device. "
+                "Supports both Foundries devices (via VPN IP) and local config devices. "
+                "Useful for applying configuration changes or recovering from errors."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (Foundries device name or local device ID)",
+                    },
+                    "container_name": {"type": "string", "description": "Container name"},
+                },
+                "required": ["device_id", "container_name"],
+            },
+        ),
+        Tool(
+            name="inspect_container",
+            description=(
+                "Inspect a container on a device (get detailed container information). "
+                "Supports both Foundries devices (via VPN IP) and local config devices. "
+                "Returns container configuration, state, network settings, and more."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (Foundries device name or local device ID)",
+                    },
+                    "container_name": {"type": "string", "description": "Container name"},
+                },
+                "required": ["device_id", "container_name"],
+            },
+        ),
+        Tool(
+            name="get_container_stats",
+            description=(
+                "Get container resource usage statistics (CPU, memory, network). "
+                "Supports both Foundries devices (via VPN IP) and local config devices. "
+                "Returns one-time snapshot of container resource usage."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (Foundries device name or local device ID)",
+                    },
+                    "container_name": {"type": "string", "description": "Container name"},
+                },
+                "required": ["device_id", "container_name"],
             },
         ),
         Tool(

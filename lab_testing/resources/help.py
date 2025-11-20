@@ -195,7 +195,11 @@ def get_help_content() -> Dict[str, Any]:
             "ota_management": {
                 "check_ota_status": "Check Foundries.io OTA update status (device_id)",
                 "trigger_ota_update": "Trigger OTA update (device_id, target?)",
-                "list_containers": "List Docker containers on device (device_id)",
+                "list_containers": "List Docker containers on device. Supports both Foundries devices (via VPN IP) and local config devices (device_id)",
+                "get_container_logs": "Get container logs from device. Supports Foundries and local devices. Useful for debugging (device_id, container_name, tail=100, follow=false, timestamps=false)",
+                "restart_container": "Restart a container on device. Supports Foundries and local devices. Useful for applying config changes (device_id, container_name)",
+                "inspect_container": "Inspect container (get detailed info: config, state, network). Supports Foundries and local devices (device_id, container_name)",
+                "get_container_stats": "Get container resource usage (CPU, memory, network). Supports Foundries and local devices (device_id, container_name)",
                 "deploy_container": "Deploy/update container (device_id, container_name, image)",
                 "get_system_status": "Get system status: uptime, load, memory, disk, kernel (device_id)",
                 "get_firmware_version": "Get firmware/OS version from /etc/os-release (device_id)",
@@ -360,6 +364,14 @@ def get_help_content() -> Dict[str, Any]:
                 "1. List current containers: 'list_containers(device_id)'",
                 "2. Deploy new container: 'deploy_container(device_id, name, image)'",
                 "3. Verify: 'list_containers(device_id)' again",
+            ],
+            "container_debugging": [
+                "1. List containers: 'list_containers(device_id)' to see all containers",
+                "2. Check container logs: 'get_container_logs(device_id, container_name, tail=100)'",
+                "3. Inspect container: 'inspect_container(device_id, container_name)' for detailed info",
+                "4. Check resource usage: 'get_container_stats(device_id, container_name)'",
+                "5. Restart if needed: 'restart_container(device_id, container_name)'",
+                "Note: All container tools support both Foundries devices (via VPN IP) and local config devices",
             ],
             "low_power_analysis": [
                 "1. Start monitoring: 'monitor_low_power(device_id, duration, threshold_mw)'",
