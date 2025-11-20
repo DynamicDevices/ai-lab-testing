@@ -11,8 +11,8 @@ License: GPL-3.0-or-later
 import subprocess
 from typing import Any, Dict, Optional
 
-# Import shared fioctl helpers from foundries_vpn module
-from lab_testing.tools.foundries_vpn import (
+# Import shared fioctl helpers from foundries_vpn_helpers module
+from lab_testing.tools.foundries_vpn_helpers import (
     _check_fioctl_configured,
     _check_fioctl_installed,
     _get_fioctl_path,
