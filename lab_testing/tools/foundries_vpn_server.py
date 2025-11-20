@@ -142,7 +142,6 @@ def get_foundries_vpn_server_config(factory: Optional[str] = None) -> Dict[str, 
         }
 
 
-
 def enable_foundries_vpn_device(device_name: str, factory: Optional[str] = None) -> Dict[str, Any]:
     """
     Enable WireGuard VPN on a Foundries device.
@@ -241,7 +240,6 @@ def enable_foundries_vpn_device(device_name: str, factory: Optional[str] = None)
         }
 
 
-
 def disable_foundries_vpn_device(device_name: str, factory: Optional[str] = None) -> Dict[str, Any]:
     """
     Disable WireGuard VPN on a Foundries device.
@@ -337,7 +335,6 @@ def disable_foundries_vpn_device(device_name: str, factory: Optional[str] = None
                 "Check device exists in factory",
             ],
         }
-
 
 
 def enable_foundries_device_to_device(
@@ -541,5 +538,3 @@ def enable_foundries_device_to_device(
                 "Check WireGuard server is accessible",
             ],
         }
-
-

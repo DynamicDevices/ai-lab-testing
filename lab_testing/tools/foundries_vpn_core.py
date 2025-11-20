@@ -121,7 +121,6 @@ def foundries_vpn_status() -> Dict[str, Any]:
         }
 
 
-
 def connect_foundries_vpn(config_path: Optional[str] = None) -> Dict[str, Any]:
     """
     Connect to Foundries VPN server.
@@ -333,7 +332,6 @@ def connect_foundries_vpn(config_path: Optional[str] = None) -> Dict[str, Any]:
         }
 
 
-
 def verify_foundries_vpn_connection() -> Dict[str, Any]:
     """
     Verify that Foundries VPN connection is working.
@@ -472,5 +470,3 @@ def verify_foundries_vpn_connection() -> Dict[str, Any]:
                 "Check WireGuard tools are installed",
             ],
         }
-
-

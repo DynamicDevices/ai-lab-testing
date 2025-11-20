@@ -574,6 +574,33 @@ def get_all_tools() -> List[Tool]:
             inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
+            name="validate_foundries_device_connectivity",
+            description=(
+                "Comprehensive step-by-step validation of Foundries VPN and device connectivity. "
+                "Performs validation in sequence: "
+                "1. Check connection to Foundries VPN server (ping test) "
+                "2. List relevant Foundries devices "
+                "3. Check devices are online and VPN is enabled "
+                "4. Test ping and SSH connectivity to devices. "
+                "Provides clear, sequential validation results to help diagnose connectivity issues. "
+                "If device_name is provided, validates only that device. Otherwise validates all VPN-enabled devices."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_name": {
+                        "type": "string",
+                        "description": "Optional specific device name to validate (e.g., 'imx8mm-jaguar-inst-2240a09dab86563'). If not provided, validates all Foundries devices with VPN enabled.",
+                    },
+                    "factory": {
+                        "type": "string",
+                        "description": "Optional factory name. If not provided, uses default factory from fioctl config.",
+                    },
+                },
+                "required": [],
+            },
+        ),
+        Tool(
             name="create_network_map",
             description="Create a visual map of running systems on the target network showing what's up and what isn't. Supports multiple layouts, export formats, device grouping, historical tracking, and performance metrics visualization.",
             inputSchema={

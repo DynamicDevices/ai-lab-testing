@@ -178,7 +178,6 @@ def check_foundries_vpn_client_config(config_path: Optional[str] = None) -> Dict
         }
 
 
-
 def generate_foundries_vpn_client_config_template(
     output_path: Optional[str] = None, factory: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -329,7 +328,6 @@ PersistentKeepalive = 25
                 "Verify VPN server is enabled",
             ],
         }
-
 
 
 def setup_foundries_vpn(
@@ -501,5 +499,3 @@ def setup_foundries_vpn(
                 "Review error details",
             ],
         }
-
-

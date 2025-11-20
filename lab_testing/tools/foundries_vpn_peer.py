@@ -25,12 +25,12 @@ from lab_testing.utils.logger import get_logger
 
 logger = get_logger()
 
+from lab_testing.config import get_foundries_vpn_config
 from lab_testing.tools.foundries_vpn_helpers import (
     _check_fioctl_configured,
     _check_fioctl_installed,
     _get_fioctl_path,
 )
-from lab_testing.config import get_foundries_vpn_config
 
 
 def check_client_peer_registered(
@@ -99,7 +99,7 @@ def check_client_peer_registered(
         if not server_host:
             # Check if Foundries VPN is connected (local import to avoid circular dependency)
             from lab_testing.tools.foundries_vpn_core import foundries_vpn_status
-            
+
             status = foundries_vpn_status()
             if status.get("connected"):
                 foundries_vpn_connected = True
@@ -198,7 +198,6 @@ def check_client_peer_registered(
         }
 
 
-
 def register_foundries_vpn_client(
     client_public_key: str,
     assigned_ip: str,
@@ -242,7 +241,7 @@ def register_foundries_vpn_client(
         if not server_host:
             # Check if Foundries VPN is connected (local import to avoid circular dependency)
             from lab_testing.tools.foundries_vpn_core import foundries_vpn_status
-            
+
             status = foundries_vpn_status()
             if status.get("connected"):
                 foundries_vpn_connected = True
@@ -446,5 +445,3 @@ def register_foundries_vpn_client(
                 "Contact VPN admin: ajlennon@dynamicdevices.co.uk",
             ],
         }
-
-

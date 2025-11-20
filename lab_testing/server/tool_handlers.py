@@ -75,6 +75,7 @@ from lab_testing.tools.foundries_vpn import (
     manage_foundries_vpn_ip_cache,
     register_foundries_vpn_client,
     setup_foundries_vpn,
+    validate_foundries_device_connectivity,
     verify_foundries_vpn_connection,
 )
 from lab_testing.tools.ota_manager import (
@@ -968,6 +969,14 @@ def handle_tool(
 
         if name == "verify_foundries_vpn_connection":
             result = verify_foundries_vpn_connection()
+            result = format_tool_response(result, name)
+            _record_tool_result(name, result, request_id, start_time)
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "validate_foundries_device_connectivity":
+            device_name = arguments.get("device_name")
+            factory = arguments.get("factory")
+            result = validate_foundries_device_connectivity(device_name, factory)
             result = format_tool_response(result, name)
             _record_tool_result(name, result, request_id, start_time)
             return [TextContent(type="text", text=json.dumps(result, indent=2))]

@@ -28,13 +28,13 @@ logger = get_logger()
 import subprocess
 from typing import Any, Dict, Optional
 
+from lab_testing.tools.foundries_devices import list_foundries_devices
 from lab_testing.tools.foundries_vpn_core import (
     connect_foundries_vpn,
     foundries_vpn_status,
     verify_foundries_vpn_connection,
 )
 from lab_testing.tools.foundries_vpn_server import get_foundries_vpn_server_config
-from lab_testing.tools.foundries_devices import list_foundries_devices
 from lab_testing.utils.logger import get_logger
 
 logger = get_logger()
@@ -159,9 +159,7 @@ def validate_foundries_device_connectivity(
         }
 
         if not ping_success:
-            validation_warnings.append(
-                f"Step 1 warning: Cannot ping VPN server {server_ip}"
-            )
+            validation_warnings.append(f"Step 1 warning: Cannot ping VPN server {server_ip}")
             step1_result["warning"] = f"Cannot ping VPN server {server_ip}"
 
         validation_steps.append(step1_result)
@@ -205,9 +203,7 @@ def validate_foundries_device_connectivity(
 
         # Filter devices if device_name specified
         if device_name:
-            matching_devices = [
-                d for d in all_devices if d.get("name") == device_name
-            ]
+            matching_devices = [d for d in all_devices if d.get("name") == device_name]
             if not matching_devices:
                 step2_result["status"] = "failed"
                 step2_result["error"] = f"Device '{device_name}' not found in factory"
@@ -273,9 +269,7 @@ def validate_foundries_device_connectivity(
 
             if not vpn_ip:
                 device_check["warning"] = "VPN IP not found - VPN may not be enabled"
-                validation_warnings.append(
-                    f"Device {device_name_check}: VPN IP not found"
-                )
+                validation_warnings.append(f"Device {device_name_check}: VPN IP not found")
 
             if device_status != "OK":
                 device_check["warning"] = f"Device status is '{device_status}', not 'OK'"
@@ -335,9 +329,7 @@ def validate_foundries_device_connectivity(
             }
 
             if not ping_success:
-                validation_warnings.append(
-                    f"Device {device_name_check} ({vpn_ip}): Cannot ping"
-                )
+                validation_warnings.append(f"Device {device_name_check} ({vpn_ip}): Cannot ping")
 
             # Test SSH connectivity
             ssh_success = False
@@ -384,25 +376,26 @@ def validate_foundries_device_connectivity(
             }
 
             if not ssh_success:
-                validation_warnings.append(
-                    f"Device {device_name_check} ({vpn_ip}): Cannot SSH"
-                )
+                validation_warnings.append(f"Device {device_name_check} ({vpn_ip}): Cannot SSH")
 
             connectivity_results.append(device_connectivity)
 
-        step4_result["status"] = "passed" if all(
-            d.get("ping_test", {}).get("success", False)
-            and d.get("ssh_test", {}).get("success", False)
-            for d in connectivity_results
-            if d.get("ping_test") != "skipped"
-        ) else "warning"
+        step4_result["status"] = (
+            "passed"
+            if all(
+                d.get("ping_test", {}).get("success", False)
+                and d.get("ssh_test", {}).get("success", False)
+                for d in connectivity_results
+                if d.get("ping_test") != "skipped"
+            )
+            else "warning"
+        )
         step4_result["details"]["devices"] = connectivity_results
         validation_steps.append(step4_result)
 
         # Summary
-        all_passed = (
-            len(validation_errors) == 0
-            and all(step.get("status") == "passed" for step in validation_steps)
+        all_passed = len(validation_errors) == 0 and all(
+            step.get("status") == "passed" for step in validation_steps
         )
 
         return {
@@ -441,4 +434,3 @@ def validate_foundries_device_connectivity(
                 "Review error details above",
             ],
         }
-

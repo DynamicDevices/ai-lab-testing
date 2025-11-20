@@ -20,14 +20,6 @@ License: GPL-3.0-or-later
 
 from typing import Any, Dict, Optional
 
-from lab_testing.utils.foundries_vpn_cache import (
-    cache_vpn_ip,
-    get_all_cached_ips,
-    get_vpn_ip,
-    remove_vpn_ip,
-)
-from lab_testing.utils.logger import get_logger
-
 # Import all functions from sub-modules for backward compatibility
 from lab_testing.tools.foundries_vpn_client import (
     check_foundries_vpn_client_config,
@@ -52,6 +44,13 @@ from lab_testing.tools.foundries_vpn_server import (
 from lab_testing.tools.foundries_vpn_validation import (
     validate_foundries_device_connectivity,
 )
+from lab_testing.utils.foundries_vpn_cache import (
+    cache_vpn_ip,
+    get_all_cached_ips,
+    get_vpn_ip,
+    remove_vpn_ip,
+)
+from lab_testing.utils.logger import get_logger
 
 logger = get_logger()
 
@@ -272,7 +271,9 @@ def manage_foundries_vpn_ip_cache(
                                 if ip_addr and ip_addr != "(none)":
                                     cache_vpn_ip(device_name_parsed, ip_addr, source="fioctl")
                                     cached_count += 1
-                                    logger.debug(f"Cached VPN IP for {device_name_parsed}: {ip_addr}")
+                                    logger.debug(
+                                        f"Cached VPN IP for {device_name_parsed}: {ip_addr}"
+                                    )
                                     break
                     else:
                         # Device might not have VPN enabled, skip silently

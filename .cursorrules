@@ -51,6 +51,19 @@
 
 ## Pull Request Guidelines
 
+**CRITICAL: PRs refer to GitHub Pull Requests, NOT local files**
+
+- When the user mentions "PR" or "pull request", they are referring to GitHub Pull Requests
+- **NEVER modify local PR description files** (e.g., `PR_DESCRIPTION.md`) unless explicitly asked
+- **ALWAYS use `gh` CLI commands** to interact with GitHub PRs:
+  - `gh pr list` - List PRs
+  - `gh pr view <number>` - View PR details
+  - `gh pr edit <number>` - Edit PR description
+  - `gh pr comment <number>` - Add comment to PR
+  - `gh pr create` - Create new PR
+- If the PR is in a forked repository, use `--repo <owner/repo>` flag
+- If the PR is in a submodule, navigate to the submodule directory first
+
 **ALWAYS follow these rules when creating or updating PRs:**
 
 1. **ALWAYS Create PRs as DRAFT:**

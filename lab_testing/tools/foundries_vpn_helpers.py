@@ -46,7 +46,6 @@ def _check_fioctl_installed() -> tuple:
     return False, "fioctl found but version check failed"
 
 
-
 def _get_fioctl_path() -> Optional[str]:
     """
     Get the path to fioctl executable.
@@ -76,7 +75,6 @@ def _get_fioctl_path() -> Optional[str]:
     return None
 
 
-
 def _check_fioctl_configured() -> tuple:
     """
     Check if fioctl is configured with Factory credentials.
@@ -101,5 +99,3 @@ def _check_fioctl_configured() -> tuple:
         return False, "fioctl not configured. Run 'fioctl login' to configure credentials"
     except Exception as e:
         return False, f"Failed to check fioctl configuration: {e!s}"
-
-
