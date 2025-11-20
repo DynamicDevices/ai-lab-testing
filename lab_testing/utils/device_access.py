@@ -148,7 +148,7 @@ def ssh_to_unified_device(
     except subprocess.TimeoutExpired:
         return {
             "success": False,
-            "error": f"SSH command timed out after 60 seconds",
+            "error": "SSH command timed out after 60 seconds",
             "device_id": device_info["device_id"],
             "device_type": device_type,
             "ip": ip,
@@ -161,4 +161,3 @@ def ssh_to_unified_device(
             "device_type": device_type,
             "ip": ip,
         }
-

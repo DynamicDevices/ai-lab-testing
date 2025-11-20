@@ -7,7 +7,41 @@ from typing import Any, Dict, Optional
 
 from lab_testing.config import get_lab_devices_config
 from lab_testing.tools.device_manager import ssh_to_device
-from lab_testing.utils.device_access import ssh_to_unified_device
+from lab_testing.utils.device_access import get_unified_device_info, ssh_to_unified_device
+
+
+def get_device_fio_info(device_id: str) -> Dict[str, Any]:
+    """Get Foundries.io information for a device (kept for backward compatibility)"""
+    # Try unified device access first
+    device_info = get_unified_device_info(device_id)
+    if "error" not in device_info:
+        # If found via unified access, return basic info
+        return {
+            "device_id": device_info.get("device_id", device_id),
+            "ip": device_info.get("ip"),
+        }
+    
+    # Fall back to local config for Foundries-specific metadata
+    try:
+        with open(get_lab_devices_config()) as f:
+            config = json.load(f)
+            devices = config.get("devices", {})
+
+            if device_id not in devices:
+                return {"error": f"Device {device_id} not found"}
+
+            device = devices[device_id]
+            return {
+                "device_id": device_id,
+                "name": device.get("name", "Unknown"),
+                "ip": device.get("ip"),
+                "fio_factory": device.get("fio_factory"),
+                "fio_target": device.get("fio_target"),
+                "fio_current": device.get("fio_current"),
+                "fio_containers": device.get("fio_containers", []),
+            }
+    except Exception as e:
+        return {"error": f"Failed to get device info: {e!s}"}
 
 
 def check_ota_status(device_id: str) -> Dict[str, Any]:
@@ -307,13 +341,12 @@ def get_container_stats(device_id: str, container_name: str) -> Dict[str, Any]:
                         "container_name": container_name,
                         "stats": stats,
                     }
-                else:
-                    return {
-                        "success": False,
-                        "device_id": result.get("device_id", device_id),
-                        "container_name": container_name,
-                        "error": "Container not found or not running",
-                    }
+                return {
+                    "success": False,
+                    "device_id": result.get("device_id", device_id),
+                    "container_name": container_name,
+                    "error": "Container not found or not running",
+                }
             except json.JSONDecodeError:
                 return {
                     "success": True,
