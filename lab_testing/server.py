@@ -153,6 +153,22 @@ async def handle_list_resources() -> List[EmbeddedResource]:
                 mimeType="application/json",
             ),
         ),
+        EmbeddedResource(
+            type="resource",
+            resource=TextResourceContents(
+                uri="docs://foundries_vpn/clean_installation",
+                text="",  # Content fetched on-demand via read_resource
+                mimeType="text/markdown",
+            ),
+        ),
+        EmbeddedResource(
+            type="resource",
+            resource=TextResourceContents(
+                uri="docs://foundries_vpn/troubleshooting",
+                text="",  # Content fetched on-demand via read_resource
+                mimeType="text/markdown",
+            ),
+        ),
     ]
     return resources
 
@@ -190,6 +206,19 @@ async def handle_read_resource(uri: str) -> str:
         logger.debug("Reading health status resource")
         health_status = get_health_status()
         return json.dumps(health_status, indent=2)
+
+    if uri.startswith("docs://foundries_vpn/"):
+        from lab_testing.resources.foundries_vpn_docs import get_foundries_vpn_documentation
+
+        doc_type = uri.replace("docs://foundries_vpn/", "")
+        doc_content = get_foundries_vpn_documentation(doc_type)
+        
+        if doc_content.get("success") and doc_content.get("content"):
+            # Return markdown content directly for better readability
+            return doc_content["content"]
+        else:
+            # Return JSON if there's an error or if requesting "all"
+            return json.dumps(doc_content, indent=2)
 
     logger.warning(f"Unknown resource requested: {uri}")
     return json.dumps({"error": f"Unknown resource: {uri}"}, indent=2)

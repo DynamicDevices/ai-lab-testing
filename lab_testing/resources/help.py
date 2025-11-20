@@ -54,7 +54,8 @@ def get_help_content() -> Dict[str, Any]:
                 "  ⚠️  This setting syncs back to server, preventing device-to-device communication",
                 "  ✅ Solution: Use `enable_foundries_device_to_device(device_name)` tool to update device config",
                 "  ✅ Server daemon must run with `--allow-device-to-device` flag for clean installations",
-                "  📖 See `docs/FOUNDRIES_VPN_CLEAN_INSTALLATION.md` for complete setup guide",
+                "  📖 See MCP resource `docs://foundries_vpn/clean_installation` for complete setup guide",
+                "  📖 See MCP resource `docs://foundries_vpn/troubleshooting` for troubleshooting guide",
                 "",
                 "**CRITICAL STEP - Client Peer Registration:**",
                 "⚠️  Before connecting, your client must be added as a peer on the Foundries WireGuard server.",
@@ -230,6 +231,8 @@ def get_help_content() -> Dict[str, Any]:
             "config://lab_devices": "Raw lab devices configuration file",
             "help://usage": "This help documentation",
             "health://status": "Server health, metrics, SSH pool status, and uptime",
+            "docs://foundries_vpn/clean_installation": "Foundries VPN complete setup guide (markdown)",
+            "docs://foundries_vpn/troubleshooting": "Foundries VPN troubleshooting guide (markdown)",
         },
         "configuration": {
             "lab_testing_root": "Path to lab testing framework (default: /data_drive/esl/ai-lab-testing)",
