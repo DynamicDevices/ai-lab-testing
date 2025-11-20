@@ -962,6 +962,72 @@ def get_all_tools() -> List[Tool]:
             },
         ),
         Tool(
+            name="start_container",
+            description=(
+                "Start a stopped container on a device. "
+                "Supports both Foundries devices (via VPN IP) and local config devices. "
+                "Useful for starting containers that were previously stopped."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (Foundries device name or local device ID)",
+                    },
+                    "container_name": {"type": "string", "description": "Container name"},
+                },
+                "required": ["device_id", "container_name"],
+            },
+        ),
+        Tool(
+            name="stop_container",
+            description=(
+                "Stop a running container on a device. "
+                "Supports both Foundries devices (via VPN IP) and local config devices. "
+                "Useful for stopping containers before updates or maintenance."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (Foundries device name or local device ID)",
+                    },
+                    "container_name": {"type": "string", "description": "Container name"},
+                },
+                "required": ["device_id", "container_name"],
+            },
+        ),
+        Tool(
+            name="exec_container",
+            description=(
+                "Execute a command inside a container on a device. "
+                "Supports both Foundries devices (via VPN IP) and local config devices. "
+                "Useful for debugging, checking files, or running commands inside containers."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "Device identifier (Foundries device name or local device ID)",
+                    },
+                    "container_name": {"type": "string", "description": "Container name"},
+                    "command": {
+                        "type": "string",
+                        "description": "Command to execute inside the container",
+                    },
+                    "interactive": {
+                        "type": "boolean",
+                        "description": "Whether to run in interactive mode (default: False)",
+                        "default": False,
+                    },
+                },
+                "required": ["device_id", "container_name", "command"],
+            },
+        ),
+        Tool(
             name="inspect_container",
             description=(
                 "Inspect a container on a device (get detailed container information). "

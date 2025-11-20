@@ -81,6 +81,7 @@ from lab_testing.tools.foundries_vpn import (
 from lab_testing.tools.ota_manager import (
     check_ota_status,
     deploy_container,
+    exec_container,
     get_container_logs,
     get_container_stats,
     get_firmware_version,
@@ -88,6 +89,8 @@ from lab_testing.tools.ota_manager import (
     inspect_container,
     list_containers,
     restart_container,
+    start_container,
+    stop_container,
     trigger_ota_update,
 )
 from lab_testing.tools.power_analysis import (
@@ -1753,6 +1756,50 @@ def handle_tool(
                 record_tool_call(name, False, duration)
                 return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
             result = restart_container(device_id, container_name)
+            _record_tool_result(name, result, request_id, start_time)
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "start_container":
+            device_id = arguments.get("device_id")
+            container_name = arguments.get("container_name")
+            if not device_id or not container_name:
+                error_msg = "device_id and container_name are required"
+                logger.warning(f"[{request_id}] {error_msg}")
+                log_tool_result(name, False, request_id, error_msg)
+                duration = time.time() - start_time
+                record_tool_call(name, False, duration)
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+            result = start_container(device_id, container_name)
+            _record_tool_result(name, result, request_id, start_time)
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "stop_container":
+            device_id = arguments.get("device_id")
+            container_name = arguments.get("container_name")
+            if not device_id or not container_name:
+                error_msg = "device_id and container_name are required"
+                logger.warning(f"[{request_id}] {error_msg}")
+                log_tool_result(name, False, request_id, error_msg)
+                duration = time.time() - start_time
+                record_tool_call(name, False, duration)
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+            result = stop_container(device_id, container_name)
+            _record_tool_result(name, result, request_id, start_time)
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        if name == "exec_container":
+            device_id = arguments.get("device_id")
+            container_name = arguments.get("container_name")
+            command = arguments.get("command")
+            interactive = arguments.get("interactive", False)
+            if not device_id or not container_name or not command:
+                error_msg = "device_id, container_name, and command are required"
+                logger.warning(f"[{request_id}] {error_msg}")
+                log_tool_result(name, False, request_id, error_msg)
+                duration = time.time() - start_time
+                record_tool_call(name, False, duration)
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, indent=2))]
+            result = exec_container(device_id, container_name, command, interactive)
             _record_tool_result(name, result, request_id, start_time)
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
