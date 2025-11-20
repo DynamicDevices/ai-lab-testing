@@ -330,6 +330,10 @@ def validate_foundries_device_connectivity(
 
             if not ping_success:
                 validation_warnings.append(f"Device {device_name_check} ({vpn_ip}): Cannot ping")
+                device_connectivity["ping_test"]["suggestion"] = (
+                    "Device may not have device-to-device communication enabled. "
+                    "Run: enable_foundries_device_to_device(device_name='...')"
+                )
 
             # Test SSH connectivity
             ssh_success = False
@@ -377,6 +381,10 @@ def validate_foundries_device_connectivity(
 
             if not ssh_success:
                 validation_warnings.append(f"Device {device_name_check} ({vpn_ip}): Cannot SSH")
+                device_connectivity["ssh_test"]["suggestion"] = (
+                    "Device may not have device-to-device communication enabled. "
+                    "Run: enable_foundries_device_to_device(device_name='...')"
+                )
 
             connectivity_results.append(device_connectivity)
 
@@ -413,12 +421,7 @@ def validate_foundries_device_connectivity(
             "next_steps": (
                 []
                 if all_passed
-                else [
-                    "Review validation errors and warnings above",
-                    "Check VPN connection: foundries_vpn_status()",
-                    "List devices: list_foundries_devices()",
-                    "Test specific device: test_device(device_id)",
-                ]
+                else _generate_next_steps(validation_errors, validation_warnings, connectivity_results)
             ),
         }
 
@@ -429,8 +432,60 @@ def validate_foundries_device_connectivity(
             "error": f"Validation failed: {e!s}",
             "validation_steps": validation_steps if "validation_steps" in locals() else [],
             "suggestions": [
-                "Check fioctl is installed and configured",
-                "Check Foundries VPN is connected",
+                "Check fioctl is installed and configured: fioctl --version",
+                "Check Foundries VPN is connected: foundries_vpn_status()",
+                "Connect to VPN if needed: connect_foundries_vpn()",
                 "Review error details above",
             ],
         }
+
+
+def _generate_next_steps(
+    validation_errors: List[str],
+    validation_warnings: List[str],
+    connectivity_results: List[Dict[str, Any]],
+) -> List[str]:
+    """Generate specific, actionable next steps based on validation results."""
+    next_steps = []
+    
+    # Check for connectivity failures
+    ping_failures = [
+        d for d in connectivity_results
+        if d.get("ping_test") != "skipped" and not d.get("ping_test", {}).get("success", False)
+    ]
+    ssh_failures = [
+        d for d in connectivity_results
+        if d.get("ssh_test") != "skipped" and not d.get("ssh_test", {}).get("success", False)
+    ]
+    
+    if ping_failures or ssh_failures:
+        failed_devices = set()
+        for d in ping_failures + ssh_failures:
+            device_name = d.get("device_name")
+            if device_name:
+                failed_devices.add(device_name)
+        
+        if failed_devices:
+            device_list = ", ".join([f"'{d}'" for d in failed_devices])
+            next_steps.append(
+                f"⚠️ CRITICAL: Enable device-to-device communication for devices: {device_list}"
+            )
+            next_steps.append(
+                f"   Run: enable_foundries_device_to_device(device_name='{list(failed_devices)[0]}')"
+            )
+            next_steps.append(
+                "   See docs/FOUNDRIES_VPN_CLEAN_INSTALLATION.md Part 3.3 for details"
+            )
+    
+    # Add general troubleshooting steps
+    if validation_errors:
+        next_steps.append("Review validation errors above")
+    
+    if not next_steps:
+        next_steps.extend([
+            "Check VPN connection: foundries_vpn_status()",
+            "List devices: list_foundries_devices()",
+            "Test specific device: test_device(device_id)",
+        ])
+    
+    return next_steps

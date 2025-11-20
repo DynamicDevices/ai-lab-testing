@@ -3,6 +3,42 @@
 **Date:** 2025-01-XX  
 **Purpose:** Complete setup guide for a clean Foundries VPN installation with device-to-device communication enabled
 
+## Quick Setup Checklist
+
+**⚠️ CRITICAL STEPS FOR DEVICE-TO-DEVICE COMMUNICATION:**
+
+1. ✅ **Server Setup:**
+   - Install dependencies (wireguard, python3, sshpass)
+   - Clone `factory-wireguard-server` repository (use fork with `--allow-device-to-device` support)
+   - Generate WireGuard server keys
+   - Configure OAuth2 credentials (`fiocreds.json`)
+   - Enable VPN server in FoundriesFactory
+   - **CRITICAL:** Start daemon with `--allow-device-to-device` flag
+   - Configure IP forwarding and firewall
+
+2. ✅ **Client Setup:**
+   - Install `fioctl` and WireGuard tools
+   - Configure `fioctl` (`fioctl login`)
+   - Generate WireGuard client keys
+   - Register client peer on server
+   - Create client WireGuard config
+   - Connect to VPN
+
+3. ✅ **Device Setup:**
+   - Enable VPN on device (`fioctl devices config wireguard <device> enable`)
+   - Wait for OTA update (up to 5 minutes)
+   - **CRITICAL:** Update device NetworkManager config (`allowed-ips=10.42.42.0/24`)
+   - Reload NetworkManager connection
+
+4. ✅ **Verification:**
+   - Test VPN connectivity (ping server, ping devices)
+   - Test device-to-device communication (ping between devices)
+   - Verify server status
+
+**⚠️ REMEMBER:** Device-to-device communication requires **BOTH**:
+- Server-side: Daemon running with `--allow-device-to-device` flag
+- Device-side: NetworkManager config updated to `allowed-ips=10.42.42.0/24`
+
 ## Overview
 
 This guide documents the **critical learning** from successfully connecting to Foundries devices via VPN for the first time. It provides step-by-step instructions for setting up Foundries VPN on a clean installation, including enabling device-to-device communication.

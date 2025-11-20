@@ -438,15 +438,15 @@ def enable_foundries_device_to_device(
         # Build SSH command to update device config
         # We SSH to the server, then from there SSH to the device using sshpass
         # Use | as sed delimiter to avoid issues with / in subnet (e.g., 10.42.42.0/24)
-        
+
         # Build the command that will run on the device
         # Use double quotes for the inner command to allow variable expansion
         device_update_cmd = f'echo "{device_password}" | sudo -S sed -i "s|allowed-ips=10.42.42.1|allowed-ips={vpn_subnet}|" /etc/NetworkManager/system-connections/factory-vpn0.nmconnection && echo Config updated'
         device_reload_cmd = f'echo "{device_password}" | sudo -S nmcli connection reload factory-vpn0 && echo "{device_password}" | sudo -S nmcli connection down factory-vpn0 && sleep 1 && echo "{device_password}" | sudo -S nmcli connection up factory-vpn0 && sleep 2 && echo "{device_password}" | sudo -S wg show factory-vpn0 | grep allowed'
-        
+
         # Combine device commands
         device_full_cmd = f"{device_update_cmd} && {device_reload_cmd}"
-        
+
         # Build the command that runs on the server (SSH to device using sshpass)
         # Use single quotes around the device command to prevent shell expansion on server
         server_cmd = f"sshpass -p '{device_password}' ssh -o StrictHostKeyChecking=no {device_user}@{device_ip} '{device_full_cmd}'"
@@ -480,7 +480,7 @@ def enable_foundries_device_to_device(
         # The banner may cause non-zero exit codes, but if we see "Config updated" it worked
         output = result.stdout + result.stderr
         success_indicator = "Config updated" in output or "allowed" in output.lower()
-        
+
         if result.returncode != 0 and not success_indicator:
             steps_failed.append("Failed to update device config")
             return {
@@ -489,12 +489,15 @@ def enable_foundries_device_to_device(
                 "steps_completed": steps_completed,
                 "steps_failed": steps_failed,
                 "suggestions": [
-                    "Check SSH access from server to device",
-                    "Verify device IP is correct",
-                    "Check device is online",
+                    "⚠️ CRITICAL: Device may need device-to-device communication enabled",
+                    "Check SSH access from VPN server to device (device may be unreachable)",
+                    "Verify device IP is correct: list_foundries_devices()",
+                    "Check device is online and VPN is enabled",
+                    "If device is online but unreachable, device NetworkManager config may need update",
+                    "See docs/FOUNDRIES_VPN_CLEAN_INSTALLATION.md Part 3.3 for manual steps",
                 ],
             }
-        
+
         # If we see success indicators, treat as success even if return code is non-zero
         if success_indicator:
             steps_completed.append("Updated device NetworkManager config")
