@@ -212,13 +212,12 @@ async def handle_read_resource(uri: str) -> str:
 
         doc_type = uri.replace("docs://foundries_vpn/", "")
         doc_content = get_foundries_vpn_documentation(doc_type)
-        
+
         if doc_content.get("success") and doc_content.get("content"):
             # Return markdown content directly for better readability
             return doc_content["content"]
-        else:
-            # Return JSON if there's an error or if requesting "all"
-            return json.dumps(doc_content, indent=2)
+        # Return JSON if there's an error or if requesting "all"
+        return json.dumps(doc_content, indent=2)
 
     logger.warning(f"Unknown resource requested: {uri}")
     return json.dumps({"error": f"Unknown resource: {uri}"}, indent=2)

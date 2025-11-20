@@ -57,6 +57,8 @@ def get_help_content() -> Dict[str, Any]:
                 "  📖 See MCP resource `docs://foundries_vpn/clean_installation` for complete setup guide",
                 "  📖 See MCP resource `docs://foundries_vpn/troubleshooting` for troubleshooting guide",
                 "",
+                "**Note:** All Foundries VPN documentation is available via MCP resources - no need to access markdown files directly.",
+                "",
                 "**CRITICAL STEP - Client Peer Registration:**",
                 "⚠️  Before connecting, your client must be added as a peer on the Foundries WireGuard server.",
                 "   This requires server administrator access. Contact: ajlennon@dynamicdevices.co.uk for assistance.",

@@ -494,7 +494,7 @@ def enable_foundries_device_to_device(
                     "Verify device IP is correct: list_foundries_devices()",
                     "Check device is online and VPN is enabled",
                     "If device is online but unreachable, device NetworkManager config may need update",
-                    "See docs/FOUNDRIES_VPN_CLEAN_INSTALLATION.md Part 3.3 for manual steps",
+                    "See MCP resource docs://foundries_vpn/clean_installation Part 3.3 for manual steps",
                 ],
             }
 

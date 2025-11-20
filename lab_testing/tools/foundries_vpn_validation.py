@@ -478,7 +478,7 @@ def _generate_next_steps(
                 f"   Run: enable_foundries_device_to_device(device_name='{list(failed_devices)[0]}')"
             )
             next_steps.append(
-                "   See docs/FOUNDRIES_VPN_CLEAN_INSTALLATION.md Part 3.3 for details"
+                "   See MCP resource docs://foundries_vpn/clean_installation Part 3.3 for details"
             )
 
     # Add general troubleshooting steps
