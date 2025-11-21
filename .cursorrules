@@ -77,7 +77,7 @@
    ```
    ## Generated with Cursor.AI Assistance
    
-   This PR and its changes were generated with the assistance of Cursor.AI for user ajlennon (Alex J Lennon, ajlennon@dynamicdevices.co.uk).
+   This PR and its changes were generated with the assistance of Cursor.AI for user @ajlennon.
    ```
 
 3. **Explicit Notification:** After creating or updating a PR, ALWAYS explicitly inform the user:
@@ -114,7 +114,7 @@
 
 **ALWAYS include this note:**
 ```
-*This [response/PR/comment] was made with the assistance of Cursor.AI for user ajlennon (Alex J Lennon, ajlennon@dynamicdevices.co.uk).*
+*This [response/PR/comment] was made with the assistance of Cursor.AI for user @ajlennon.*
 ```
 
 **Format examples:**
