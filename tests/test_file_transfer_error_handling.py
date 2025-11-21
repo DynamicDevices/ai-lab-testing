@@ -48,13 +48,14 @@ class TestFileTransferErrorHandling:
         assert "not found" in result["error"].lower()
         assert "local" in result["error"].lower()
 
-    @patch("lab_testing.tools.file_transfer.resolve_device_identifier")
-    @patch("lab_testing.tools.file_transfer.load_device_config")
-    def test_copy_file_to_device_local_path_not_file(self, mock_config, mock_resolve):
+    @patch("lab_testing.tools.file_transfer.get_unified_device_info")
+    def test_copy_file_to_device_local_path_not_file(self, mock_get_info):
         """Test error handling when local path is a directory"""
-        mock_resolve.return_value = "test_device"
-        mock_config.return_value = {
-            "devices": {"test_device": {"ip": "192.168.1.1", "ssh_user": "root"}}
+        mock_get_info.return_value = {
+            "device_id": "test_device",
+            "ip": "192.168.1.1",
+            "username": "root",
+            "device_type": "local",
         }
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -217,17 +218,18 @@ class TestFileTransferErrorHandling:
 class TestMultiplexedConnectionReuse:
     """Test multiplexed SSH connection reuse"""
 
-    @patch("lab_testing.tools.file_transfer.resolve_device_identifier")
-    @patch("lab_testing.tools.file_transfer.load_device_config")
+    @patch("lab_testing.tools.file_transfer.get_unified_device_info")
     @patch("lab_testing.tools.file_transfer.get_persistent_ssh_connection")
     @patch("lab_testing.tools.file_transfer.subprocess.run")
     def test_connection_reuse_multiple_transfers(
-        self, mock_subprocess, mock_get_connection, mock_config, mock_resolve
+        self, mock_subprocess, mock_get_connection, mock_get_info
     ):
         """Test that multiple transfers reuse the same SSH connection"""
-        mock_resolve.return_value = "test_device"
-        mock_config.return_value = {
-            "devices": {"test_device": {"ip": "192.168.1.1", "ssh_user": "root"}}
+        mock_get_info.return_value = {
+            "device_id": "test_device",
+            "ip": "192.168.1.1",
+            "username": "root",
+            "device_type": "local",
         }
 
         # Mock persistent connection
@@ -323,17 +325,18 @@ class TestMultiplexedConnectionReuse:
         finally:
             Path(tmpfile_path).unlink()
 
-    @patch("lab_testing.tools.file_transfer.resolve_device_identifier")
-    @patch("lab_testing.tools.file_transfer.load_device_config")
+    @patch("lab_testing.tools.file_transfer.get_unified_device_info")
     @patch("lab_testing.tools.file_transfer.get_persistent_ssh_connection")
     @patch("lab_testing.tools.file_transfer.subprocess.run")
     def test_fallback_when_no_ssh_key(
-        self, mock_subprocess, mock_get_connection, mock_config, mock_resolve
+        self, mock_subprocess, mock_get_connection, mock_get_info
     ):
         """Test that tools fallback to direct connection when SSH key not installed"""
-        mock_resolve.return_value = "test_device"
-        mock_config.return_value = {
-            "devices": {"test_device": {"ip": "192.168.1.1", "ssh_user": "root"}}
+        mock_get_info.return_value = {
+            "device_id": "test_device",
+            "ip": "192.168.1.1",
+            "username": "root",
+            "device_type": "local",
         }
 
         # Mock no persistent connection (SSH key not installed)

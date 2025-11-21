@@ -24,10 +24,13 @@ from lab_testing.tools.ota_manager import (
 class TestGetDeviceFioInfo:
     """Tests for get_device_fio_info"""
 
+    @patch("lab_testing.tools.ota_manager.get_unified_device_info")
     @patch("lab_testing.tools.ota_manager.get_lab_devices_config")
     @patch("builtins.open")
-    def test_get_device_fio_info_success(self, mock_open, mock_config, sample_device_config):
+    def test_get_device_fio_info_success(self, mock_open, mock_config, mock_get_info, sample_device_config):
         """Test getting Foundries.io info for a device"""
+        # Mock unified device info to return error so it falls back to config
+        mock_get_info.return_value = {"error": "Device not found in VPN cache"}
         mock_config.return_value = sample_device_config
         mock_open.return_value.__enter__.return_value.read.return_value = json.dumps(
             {
@@ -187,20 +190,23 @@ class TestGetSystemStatus:
 class TestListContainers:
     """Tests for list_containers"""
 
-    @patch("lab_testing.tools.ota_manager.ssh_to_device")
-    @patch("lab_testing.tools.ota_manager.get_device_fio_info")
-    def test_list_containers_success(self, mock_get_info, mock_ssh):
+    @patch("lab_testing.tools.ota_manager.ssh_to_unified_device")
+    def test_list_containers_success(self, mock_ssh):
         """Test listing containers successfully"""
-        mock_get_info.return_value = {"device_id": "test_device_1", "ip": "192.168.1.100"}
         mock_ssh.return_value = {
             "success": True,
-            "output": '[{"name": "app-container", "image": "app:1.0.0", "status": "running"}]',
+            "stdout": "app-container\tUp 2 hours\tapp:1.0.0",
+            "device_id": "test_device_1",
+            "device_type": "local",
+            "connection_method": "direct",
         }
 
         result = list_containers("test_device_1")
 
         assert "error" not in result
         assert "containers" in result
+        assert len(result["containers"]) == 1
+        assert result["containers"][0]["name"] == "app-container"
         mock_ssh.assert_called()
 
     @patch("lab_testing.tools.ota_manager.get_device_fio_info")
