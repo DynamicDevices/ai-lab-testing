@@ -663,6 +663,11 @@ def get_all_tools() -> List[Tool]:
                         "description": "If true, show historical status changes and uptime indicators",
                         "default": False,
                     },
+                    "show_containers": {
+                        "type": "boolean",
+                        "description": "If true, fetch and display Docker containers running on devices",
+                        "default": False,
+                    },
                     "export_format": {
                         "type": "string",
                         "enum": ["mermaid", "png", "svg", "pdf", "html", "json", "csv"],

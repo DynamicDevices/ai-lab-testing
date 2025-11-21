@@ -1001,6 +1001,7 @@ def handle_tool(
             show_metrics = arguments.get("show_metrics", True)
             show_alerts = arguments.get("show_alerts", True)
             show_history = arguments.get("show_history", False)
+            show_containers = arguments.get("show_containers", False)
             export_format = arguments.get("export_format", "mermaid")
             export_path = arguments.get("export_path")
 
@@ -1036,6 +1037,7 @@ def handle_tool(
                 show_metrics=show_metrics,
                 show_alerts=show_alerts,
                 show_history=show_history,
+                show_containers=show_containers,
                 export_format=export_format,
                 export_path=export_path,
             )

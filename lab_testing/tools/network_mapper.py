@@ -134,6 +134,7 @@ def create_network_map(
     show_metrics: bool = True,
     show_alerts: bool = True,
     show_history: bool = False,
+    show_containers: bool = False,
     export_format: str = "mermaid",
     export_path: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -156,6 +157,7 @@ def create_network_map(
         show_metrics: If True, color-code devices by latency and show performance metrics
         show_alerts: If True, highlight devices with errors, warnings, or issues
         show_history: If True, show historical status changes and uptime indicators
+        show_containers: If True, fetch and display Docker containers running on devices
         export_format: Export format - 'mermaid', 'png', 'svg', 'pdf', 'html', 'json', 'csv'
         export_path: Optional path to save exported file
 
@@ -163,6 +165,7 @@ def create_network_map(
         Dictionary with network map including:
         - Active hosts discovered
         - Configured devices status (from list_devices)
+        - Container information (if show_containers=True)
         - Network topology visualization
         - Summary statistics
         - Visualization options and export data
@@ -270,6 +273,41 @@ def create_network_map(
                 # Store configured IPs for later comparison
                 configured_ips = set(configured_ips)
                 logger.info(f"Found {len(device_statuses)} devices from list_devices()")
+
+                # Fetch container information for online devices if requested
+                if show_containers:
+                    logger.info("Fetching container information for online devices...")
+                    from lab_testing.tools.ota_manager import list_containers
+
+                    # Fetch containers in parallel for faster processing
+                    container_futures = {}
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                        for device_id, device_info in device_statuses.items():
+                            # Only fetch containers for online devices with SSH access
+                            if device_info.get("status") == "online" and device_info.get("ssh"):
+                                future = executor.submit(list_containers, device_id)
+                                container_futures[future] = device_id
+
+                        # Collect results
+                        for future in concurrent.futures.as_completed(container_futures):
+                            device_id = container_futures[future]
+                            try:
+                                container_result = future.result(timeout=10)
+                                if container_result.get("success"):
+                                    containers = container_result.get("containers", [])
+                                    device_statuses[device_id]["containers"] = containers
+                                    device_statuses[device_id]["container_count"] = len(containers)
+                                    logger.debug(
+                                        f"Found {len(containers)} containers on {device_id}"
+                                    )
+                                else:
+                                    # Device might not have Docker or container listing failed
+                                    device_statuses[device_id]["containers"] = []
+                                    device_statuses[device_id]["container_count"] = 0
+                            except Exception as e:
+                                logger.warning(f"Failed to fetch containers for {device_id}: {e}")
+                                device_statuses[device_id]["containers"] = []
+                                device_statuses[device_id]["container_count"] = 0
             else:
                 logger.warning(
                     f"list_devices() failed: {devices_result.get('error', 'Unknown error')}"
@@ -362,6 +400,7 @@ def create_network_map(
             "show_metrics": show_metrics,
             "show_alerts": show_alerts,
             "show_history": show_history,
+            "show_containers": show_containers,
             "export_format": export_format,
         }
 
@@ -481,6 +520,11 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
 
     Returns:
         Mermaid diagram as a string
+
+    Note:
+        For debugging/verification, prefer browser rendering (export_format="html")
+        over static PNG exports. Browser renderers provide more accurate rendering
+        of power connections and complex relationships. See docs/LEARNINGS.md for details.
     """
     if "error" in network_map:
         return f"```mermaid\ngraph TD\n    Error[\"❌ Error: {network_map['error']}\"]\n```"
@@ -502,6 +546,7 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
         show_metrics = viz_options.get("show_metrics", True)
         show_alerts = viz_options.get("show_alerts", True)
         show_history = viz_options.get("show_history", False)
+        show_containers = viz_options.get("show_containers", False)
 
         # Load full config to get power switch device info
         import json
@@ -590,6 +635,67 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
 
             return alerts
 
+        # Helper function to add container nodes for a device
+        def add_container_nodes(device_id: str, device: Dict[str, Any], parent_node_id: str) -> List[str]:
+            """Add container nodes connected to a device node
+            
+            Args:
+                device_id: Device identifier
+                device: Device dictionary with container information
+                parent_node_id: Mermaid node ID of the parent device
+                
+            Returns:
+                List of container node IDs added
+            """
+            container_node_ids = []
+            if not show_containers:
+                return container_node_ids
+                
+            containers = device.get("containers", [])
+            if not containers:
+                return container_node_ids
+            
+            for container in containers:
+                container_name = container.get("name", "unknown")
+                container_status = container.get("status", "unknown")
+                container_image = container.get("image", "unknown")
+                
+                # Extract image name (remove tag if present)
+                image_name = container_image.split(":")[0].split("/")[-1] if container_image else "unknown"
+                
+                # Determine container status indicator
+                if "Up" in container_status or "running" in container_status.lower():
+                    status_icon = "🟢"
+                    status_text = "Running"
+                elif "Exited" in container_status or "stopped" in container_status.lower():
+                    status_icon = "🔴"
+                    status_text = "Stopped"
+                else:
+                    status_icon = "🟡"
+                    status_text = container_status[:20] if len(container_status) > 20 else container_status
+                
+                # Clean container name for Mermaid
+                clean_container_name = container_name.replace('"', "'").replace("\n", " ").replace("\r", " ")
+                if len(clean_container_name) > 25:
+                    clean_container_name = clean_container_name[:22] + "..."
+                
+                # Create container node ID
+                container_node_id = f"C_{device_id.replace('-', '_').replace('.', '_').replace('/', '_')}_{container_name.replace('-', '_').replace('.', '_').replace('/', '_')}"
+                container_node_id = container_node_id[:50]  # Limit length
+                
+                # Create container label
+                container_label = f'"🐳 {clean_container_name}<br/>{status_icon} {status_text}<br/>{image_name}"'
+                
+                # Add container node
+                lines.append(f"            {container_node_id}({container_label}):::container")
+                
+                # Connect container to parent device
+                lines.append(f'            {parent_node_id} -->|"Runs"| {container_node_id}')
+                
+                container_node_ids.append(container_node_id)
+            
+            return container_node_ids
+
         # Helper function to build enhanced device label
         def build_device_label(
             device: Dict[str, Any],
@@ -638,7 +744,15 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
 
             # Add performance metrics if requested
             latency_ms = device.get("latency_ms")
-            css_class = "online"  # Default
+            # Determine base CSS class based on device type
+            if device_type == "development_board" or device_type == "embedded_controllers":
+                css_class = "embedded_controllers"
+            elif device_type == "server":
+                css_class = "server"
+            elif device_type == "network_infrastructure":
+                css_class = "network_infrastructure"
+            else:
+                css_class = "online"  # Default for other types
 
             if show_metrics and latency_ms is not None:
                 label_parts.append(f"Ping: {latency_ms}ms")
@@ -681,15 +795,18 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
 
         # Add styling for subgraph titles to make them more visible and prevent overlap
         # Set white background and improve subgraph title visibility
+        # Increased font size for better readability
         lines.append(
-            "    %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#fff', 'primaryTextColor':'#000', 'primaryBorderColor':'#000', 'lineColor':'#000', 'secondaryColor':'#fff', 'tertiaryColor':'#fff', 'background':'#fff', 'subgraphTitleFontSize':'20px', 'subgraphTitleFontWeight':'bold', 'subgraphPadding':20}}}%%"
+            "    %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#fff', 'primaryTextColor':'#000', 'primaryBorderColor':'#000', 'lineColor':'#000', 'secondaryColor':'#fff', 'tertiaryColor':'#fff', 'background':'#fff', 'subgraphTitleFontSize':'32px', 'subgraphTitleFontWeight':'bold', 'subgraphPadding':25}}}%%"
         )
 
         # Title with summary - use friendly name if available
+        # Add title as a separate node first to prevent overlap
         online_count = summary.get("online_devices", 0)
         total_count = summary.get("total_configured_devices", 0)
         title = f"{network_friendly_name}: {target_network} | {online_count} Online / {total_count} Total"
-        lines.append(f'    subgraph Network["{title}"]')
+        lines.append(f'    TitleNode["{title}"]:::title_style')
+        lines.append(f'    subgraph Network[" "]')
 
         # Organize devices into logical groups for better network map visualization
         lines.append('        subgraph PowerSwitches["🔌 Power Switches"]')
@@ -787,8 +904,9 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
         # Close PowerSwitches subgraph
         lines.append("        end")
 
-        # Separate devices into test equipment and regular devices
+        # Separate devices into test equipment, gateways, and regular devices
         test_equipment_online = []
+        gateway_devices_online = []
         regular_devices_online = []
 
         for device_id, device in online_devices:
@@ -797,8 +915,16 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
             if device_type == "tasmota_device":
                 continue
 
+            # Check if this is a gateway/router (unifi or .1 address)
+            friendly_name = device.get("friendly_name") or device.get("name", device_id)
+            hostname = device.get("hostname") or friendly_name
+            ip = device.get("ip", "")
+            is_gateway = "unifi" in hostname.lower() or ip.endswith(".1")
+
             if device_type == "test_equipment":
                 test_equipment_online.append((device_id, device))
+            elif is_gateway:
+                gateway_devices_online.append((device_id, device))
             else:
                 regular_devices_online.append((device_id, device))
 
@@ -893,24 +1019,102 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                                 power_connections.append((tasmota_node_id, node_id))
 
                 lines.append(f"            {node_id}({node_label}):::online")
+                
+                # Add container nodes if requested
+                add_container_nodes(device_id, device, node_id)
 
+            lines.append("        end")
+
+        # Add Gateway subgraph first (before regular devices)
+        if gateway_devices_online:
+            lines.append('        subgraph Gateways["🌐 Network Infrastructure"]')
+            for device_id, device in gateway_devices_online:
+                device_type = "network_infrastructure"  # Force gateway type
+                friendly_name = device.get("friendly_name") or device.get("name", device_id)
+                hostname = device.get("hostname") or friendly_name
+                ip = device.get("ip", "")
+                is_gateway = True
+
+                # Use full hostname, don't truncate
+                clean_hostname = hostname.replace('"', "'").replace("\n", " ").replace("\r", " ")
+
+                # Use helper function to build enhanced label
+                node_label, css_class = build_device_label(
+                    device, device_type, clean_hostname, ip, is_gateway
+                )
+
+                node_id = f"D_{device_id.replace('-', '_').replace('.', '_').replace('/', '_')}"
+                device_nodes[node_id] = {"type": device_type, "device_id": device_id}
+                device_id_to_node_id[device_id] = node_id
+
+                # Check for power switch relationship
+                power_switch = device.get("power_switch")
+                power_switch_id = None
+                if power_switch:
+                    if isinstance(power_switch, dict):
+                        power_switch_id = power_switch.get("device_id")
+                    else:
+                        power_switch_id = power_switch
+
+                if power_switch_id:
+                    if power_switch_id in device_id_to_node_id:
+                        tasmota_node_id = device_id_to_node_id[power_switch_id]
+                        if tasmota_node_id in tasmota_nodes:
+                            power_connections.append((tasmota_node_id, node_id))
+                    elif power_switch_id in devices_config:
+                        switch_info = devices_config[power_switch_id]
+                        tasmota_ip = switch_info.get("ip", "")
+                        if tasmota_ip:
+                            switch_network_base = ".".join(tasmota_ip.split(".")[:3])
+                            if switch_network_base == target_network_base:
+                                tasmota_name = switch_info.get("friendly_name") or switch_info.get(
+                                    "name", power_switch_id
+                                )
+                                tasmota_node_id = f"T_{power_switch_id.replace('-', '_').replace('.', '_').replace('/', '_')}"
+                                if tasmota_node_id not in tasmota_nodes:
+                                    tasmota_clean_name = (
+                                        tasmota_name.replace('"', "'")
+                                        .replace("\n", " ")
+                                        .replace("\r", " ")
+                                    )
+                                    if len(tasmota_clean_name) > 20:
+                                        tasmota_clean_name = tasmota_clean_name[:17] + "..."
+                                    tasmota_label = f'"🔌 {tasmota_clean_name}<br/>{tasmota_ip}"'
+                                    tasmota_nodes[tasmota_node_id] = {
+                                        "label": tasmota_label,
+                                        "device_id": power_switch_id,
+                                    }
+                                    device_id_to_node_id[power_switch_id] = tasmota_node_id
+                                    lines.append(
+                                        f"            {tasmota_node_id}({tasmota_label}):::tasmota_device"
+                                    )
+                                power_connections.append((tasmota_node_id, node_id))
+
+                # Gateway devices always use network_infrastructure styling
+                final_css_class = "network_infrastructure"
+                lines.append(f"            {node_id}({node_label}):::{final_css_class}")
+                
+                # Add container nodes if requested
+                add_container_nodes(device_id, device, node_id)
             lines.append("        end")
 
         # Start Devices subgraph
         lines.append('        subgraph Devices["📱 Devices"]')
 
-        # Process regular online devices (non-Tasmota, non-test-equipment)
+        # Process regular online devices (non-Tasmota, non-test-equipment, non-gateway)
         for device_id, device in regular_devices_online:
             device_type = device.get("type", "other")
             friendly_name = device.get("friendly_name") or device.get("name", device_id)
             hostname = device.get("hostname") or friendly_name
             ip = device.get("ip", "")
+            is_gateway = False  # Gateways already processed above
 
-            # Check if this is a gateway/router (unifi or .1 address)
-            is_gateway = False
-            if "unifi" in hostname.lower() or ip.endswith(".1"):
-                device_type = "network_infrastructure"
-                is_gateway = True
+            # Map embedded device types to embedded_controllers for proper styling
+            # Sentai boards, iMX boards, and similar embedded devices should be treated as embedded_controllers
+            if device_type in ["sentai_board", "unknown"] or "imx" in hostname.lower() or "jaguar" in hostname.lower() or "sentai" in hostname.lower():
+                # Check if it's clearly an embedded device (not a server or network device)
+                if device_type != "server" and device_type != "network_infrastructure":
+                    device_type = "embedded_controllers"
 
             # Use full hostname, don't truncate
             clean_hostname = hostname.replace('"', "'").replace("\n", " ").replace("\r", " ")
@@ -972,12 +1176,34 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                                 )
                             power_connections.append((tasmota_node_id, node_id))
 
-            # Use network_infrastructure styling for gateway devices, but respect alert/metric classes
-            if is_gateway and css_class == "online":
+            # Determine CSS class based on device type
+            # Use device_type-specific styling instead of generic "online"
+            # Note: device_type may have been remapped above for embedded devices
+            if device_type == "development_board" or device_type == "embedded_controllers":
+                # Embedded devices should use embedded_controllers styling
+                if css_class in ["latency_excellent", "latency_good", "latency_fair", "latency_poor"]:
+                    final_css_class = css_class  # Keep latency-based class
+                elif css_class == "alert_device":
+                    final_css_class = "alert_device"  # Keep alert class
+                else:
+                    final_css_class = "embedded_controllers"
+            elif device_type == "server":
+                if css_class in ["latency_excellent", "latency_good", "latency_fair", "latency_poor"]:
+                    final_css_class = css_class
+                elif css_class == "alert_device":
+                    final_css_class = "alert_device"
+                else:
+                    final_css_class = "server"
+            elif device_type == "network_infrastructure":
                 final_css_class = "network_infrastructure"
             else:
+                # For other types, use the css_class from build_device_label (which may be latency-based or alert)
+                # This will be "online" (green) for generic devices
                 final_css_class = css_class
             lines.append(f"            {node_id}({node_label}):::{final_css_class}")
+            
+            # Add container nodes if requested
+            add_container_nodes(device_id, device, node_id)
 
         # Separate offline devices into test equipment and regular devices
         test_equipment_offline = []
@@ -1088,6 +1314,9 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                                 power_connections.append((tasmota_node_id, node_id))
 
                 lines.append(f"            {node_id}({node_label}):::offline")
+                
+                # Add container nodes if requested (even for offline devices, containers might be cached)
+                add_container_nodes(device_id, device, node_id)
 
             lines.append("        end")
             # Reopen Devices subgraph for regular offline devices
@@ -1155,6 +1384,9 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
                             power_connections.append((tasmota_node_id, node_id))
 
             lines.append(f"            {node_id}({node_label}):::offline")
+            
+            # Add container nodes if requested (even for offline devices, containers might be cached)
+            add_container_nodes(device_id, device, node_id)
 
         if len(offline_devices) > 15:
             lines.append(
@@ -1163,7 +1395,8 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
 
         lines.append("        end")
 
-        # Add power connections with better styling
+        # Add power connections INSIDE Network subgraph but outside device subgraphs
+        # This ensures Mermaid can properly render connections between subgraphs
         for tasmota_id, device_id in power_connections:
             # Check if device is offline by looking up its status
             device_status = "online"  # default
@@ -1173,7 +1406,7 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
 
             # Use solid line for online, dashed for offline
             # Use thicker, colored lines for power connections
-            # Connect from PowerSwitches subgraph to Devices subgraph
+            # Add connections inside Network subgraph (proper indentation)
             if device_status == "offline":
                 lines.append(f'        {tasmota_id} -.->|"⚡ Powers"| {device_id}')
             else:
@@ -1220,6 +1453,8 @@ def generate_network_map_mermaid(network_map: Dict[str, Any]) -> str:
             "    classDef offline fill:#FFB6B6,stroke:#FF0000,stroke-width:2px,stroke-dasharray: 5 5,color:#000"
         )
         lines.append("    classDef power_line stroke:#FFD700,stroke-width:4px")
+        lines.append("    classDef title_style fill:#fff,stroke:#000,stroke-width:2px,color:#000,font-size:16px,font-weight:bold")
+        lines.append("    classDef container fill:#E6F3FF,stroke:#4A90E2,stroke-width:2px,color:#000")
 
         # Add latency-based performance metric classes (if show_metrics enabled)
         if show_metrics:

@@ -164,3 +164,32 @@ Foundries devices discovered via FoundriesFactory API using `fioctl devices list
 - Tools provide actionable troubleshooting steps
 - Link to relevant documentation and workflows
 - Suggest alternative approaches when primary method fails
+
+## Network Mapping Best Practices
+
+### Browser Rendering for Mermaid Diagrams
+**When debugging or verifying network map visualizations, always use browser rendering instead of static PNG exports.**
+
+**Why:**
+- Browser renderers (using Mermaid.js) provide more accurate rendering of complex diagrams
+- Power connection lines and relationships render correctly in browsers
+- Static PNG exports may miss connections or have rendering issues
+- Better for verifying that power switch relationships are correctly wired
+
+**How to do it:**
+1. Generate the network map with `create_network_map()` (export_format="mermaid" or "html")
+2. Create an HTML file that includes the Mermaid diagram
+3. Start a local web server: `python3 -m http.server 8000` (in directory with HTML file)
+4. Navigate browser to `http://localhost:8000/network_map.html`
+5. Use browser snapshot/screenshot tools to capture the rendered diagram
+
+**Example workflow:**
+```python
+# Generate HTML with embedded Mermaid
+result = create_network_map(export_format="html", export_path="network_map.html")
+
+# Serve locally and view in browser
+# Browser rendering shows power connections and relationships accurately
+```
+
+**Note:** This is especially important when troubleshooting power switch relationships or verifying that device connections are correctly represented in the diagram.

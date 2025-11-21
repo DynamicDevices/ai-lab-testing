@@ -209,6 +209,7 @@ def get_help_content() -> Dict[str, Any]:
                 "get_foundries_registration_status": "Check Foundries.io registration, connection, update status (device_id)",
                 "get_secure_boot_status": "Get detailed secure boot status: U-Boot, kernel, EFI, HAB/CAAM (device_id)",
                 "get_device_identity": "Get device identity: hostname, SOC unique ID, Foundries registration name (device_id)",
+                "create_network_map": "Create a visual map of running systems on the target network showing what's up and what isn't. Supports multiple layouts, export formats, device grouping, historical tracking, performance metrics visualization, and container visualization. Use show_containers=true to display Docker containers running on devices. Export formats: mermaid (default), png, svg, pdf, html, json, csv. Use quick_mode=true for faster generation (<5s) by skipping network scanning. Layouts: lr (left-right, default), tb (top-bottom), radial, hierarchical, grid. Group by: type, status, location, power_circuit, none. Example: create_network_map(show_containers=true, quick_mode=true, export_format='html')",
             },
             "batch_operations": {
                 "batch_operation": "Execute operation on multiple devices in parallel (device_ids[], operation, max_concurrent=5, ...)",
