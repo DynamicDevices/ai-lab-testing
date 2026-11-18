@@ -1,3 +1,6 @@
+# Vendored dependencies are not project source, even when tracked in Git.
+exclude: ^node_modules/
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
@@ -18,7 +21,7 @@ repos:
         language_version: python3
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.11
+    rev: v0.12.3
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
@@ -27,6 +30,15 @@ repos:
     rev: v1.8.0
     hooks:
       - id: mypy
+        name: mypy (package and tests)
+        # server.py is a legacy entrypoint beside the server/ package.
+        # Check both, but not in the same invocation under one module name.
+        exclude: ^lab_testing/server\.py$
         additional_dependencies: [types-requests]
         args: [--ignore-missing-imports]
-
+      - id: mypy
+        name: mypy (legacy server entrypoint)
+        alias: mypy-server-entrypoint
+        files: ^lab_testing/server\.py$
+        additional_dependencies: [types-requests]
+        args: [--ignore-missing-imports]

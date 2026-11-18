@@ -3,7 +3,7 @@
 install:
 	pip3 install -r requirements.txt
 	pip3 install -e ".[dev]"
-	pre-commit install
+	pre-commit install --overwrite
 
 test:
 	python3.10 -m pytest tests/ -v
@@ -41,4 +41,3 @@ setup-repo:
 
 update-docs:
 	bash scripts/update-docs.sh
-
