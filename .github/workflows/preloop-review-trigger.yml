@@ -1,0 +1,83 @@
+name: Start Preloop review
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Open PR to review
+        required: true
+        type: number
+      execution_id:
+        description: Existing owned execution ID for an explicitly selected same-commit retry
+        required: false
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: preloop-trigger-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft == false &&
+       github.event.pull_request.user.login != 'dependabot[bot]' &&
+       !contains(github.event.pull_request.labels.*.name, 'preloop-skip-review') &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node24
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Load the current signed service policy
+        env:
+          FINAL_POLICY: ${{ secrets.PRELOOP_PUBLICATION_AUTHORITY }}
+          FINAL_SIGNATURE: ${{ secrets.PRELOOP_PUBLICATION_SIGNATURE }}
+        run: |
+          python3 - <<'PY_POLICY'
+          import os
+          from pathlib import Path
+          policy, signature = os.environ['FINAL_POLICY'], os.environ['FINAL_SIGNATURE']
+          assert policy and signature, 'Current signed service policy is required'
+          Path('.github/preloop-publication-authority.json').write_text(policy)
+          Path('.github/preloop-publication-authority.json.sig').write_text(signature)
+          PY_POLICY
+      - name: Prepare the durable attempt
+        id: prepare
+        env:
+          PRELOOP_CI_TRIGGER_TOKEN: ${{ secrets.PRELOOP_REVIEW_TRIGGER_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/preloop-trigger.py --prepare
+      - name: Persist the attempt before spending
+        if: steps.prepare.outputs.needs_intent == 'true'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node24
+        with:
+          name: preloop-intent-${{ steps.prepare.outputs.pr_number }}-${{ steps.prepare.outputs.head_sha }}
+          path: ${{ runner.temp }}/preloop-trigger-intent.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Start the bound review once
+        id: review
+        env:
+          PRELOOP_CI_TRIGGER_TOKEN: ${{ secrets.PRELOOP_REVIEW_TRIGGER_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/preloop-trigger.py --start
+      - name: Retain the controller binding
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node24
+        with:
+          name: preloop-trigger-${{ steps.review.outputs.execution_id }}
+          path: ${{ runner.temp }}/preloop-trigger-receipt/receipt.json
+          if-no-files-found: error
+          retention-days: 7
