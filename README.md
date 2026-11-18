@@ -4,6 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ai Lab Testing MCP server](https://mcprush.com/badge/ai-lab-testing-mcp/card.svg)](https://mcprush.com/to/ai-lab-testing-mcp?ref=badge)
 
 MCP server exposing remote embedded hardware testing capabilities to AI assistants.
 
