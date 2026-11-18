@@ -1,0 +1,65 @@
+name: Preloop publication
+
+on:
+  status:
+  workflow_dispatch:
+    inputs:
+      execution_id:
+        description: Existing authoritative Preloop execution; no review is retriggered
+        required: true
+        type: string
+      head_sha:
+        description: Exact reviewed head
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: preloop-publication-${{ github.repository }}-${{ github.event.target_url || inputs.execution_id }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || (github.event.context == 'preloop' && github.event.state != 'pending')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+      checks: write
+      id-token: write
+    steps:
+      # Status events execute trusted default-branch orchestration only.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node24
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Load the final signed service policy
+        env:
+          FINAL_POLICY: ${{ secrets.PRELOOP_PUBLICATION_AUTHORITY }}
+          FINAL_SIGNATURE: ${{ secrets.PRELOOP_PUBLICATION_SIGNATURE }}
+        run: |
+          python3 - <<'PY_POLICY'
+          import os
+          from pathlib import Path
+          policy, signature = os.environ['FINAL_POLICY'], os.environ['FINAL_SIGNATURE']
+          assert policy and signature, 'Current signed service policy is required'
+          Path('.github/preloop-publication-authority.json').write_text(policy)
+          Path('.github/preloop-publication-authority.json.sig').write_text(signature)
+          PY_POLICY
+      - name: Validate, publish and independently read back the result
+        env:
+          PRELOOP_CI_TOKEN: ${{ secrets.PRELOOP_PUBLICATION_READ_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          PUBLICATION_RECEIPT: ${{ runner.temp }}/preloop-publication-receipt.json
+        run: python3 .github/preloop-publisher.py
+      - name: Retain the publication receipt
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node24
+        with:
+          name: preloop-publication-receipt
+          path: ${{ runner.temp }}/preloop-publication-receipt.json
+          if-no-files-found: warn
+          retention-days: 30

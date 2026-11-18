@@ -1,0 +1,28 @@
+name: Preloop integration tests
+
+on:
+  pull_request:
+    paths:
+      - '.github/preloop-*'
+      - '.github/test_preloop*'
+      - '.github/workflows/preloop-*'
+  push:
+    branches: [main]
+    paths:
+      - '.github/preloop-*'
+      - '.github/test_preloop*'
+      - '.github/workflows/preloop-*'
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node24
+        with:
+          persist-credentials: false
+      - name: Test trigger ownership, replay denial and complete publication diff
+        run: python3 -m unittest discover -s .github -p 'test_preloop*.py' -v
